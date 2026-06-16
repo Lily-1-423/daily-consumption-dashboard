@@ -66,9 +66,9 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
     <div class="stats" id="statsRow"></div>
     <div class="chart-grid">
       <div class="chart-box"><h3>运营人员消耗</h3><canvas id="chartOperator"></canvas></div>
-      <div class="chart-box"><h3>媒体消耗分布</h3><canvas id="chartMedia"></canvas></div>
-      <div class="chart-box full"><h3>客户消耗 Top10</h3><canvas id="chartClient"></canvas></div>
-      <div class="chart-box"><h3>每日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
+      <div class="chart-box"><h3>媒体消耗分布</h3><div id="mediaTableContainer"><table class="data-table" id="mediaTable"><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></table></div></div>
+      <div class="chart-box full"><h3>客户消耗 Top10</h3><div id="clientTableContainer"><table class="data-table" id="clientTable"><tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr></table></div></div>
+      <div class="chart-box"><h3>每日消耗趋势</h3><div id="dailyTableContainer"><table class="data-table" id="dailyTable"><tr><th>日期</th><th>消耗</th><th>涨跌幅</th></tr></table></div></div>
       <div class="chart-box"><h3>每日跌涨幅</h3><canvas id="chartChange"></canvas></div>
     </div>
     <div class="anomaly" id="anomalySection"><h3>🔔 媒体异动 · 每日上升/下降 Top5</h3><div id="anomalyTables"></div></div>
@@ -124,10 +124,10 @@ function updateFilters() {
 function applyFilters() {
   const data = getGroupData(currentGroup);
   renderStats(data);
+  renderMediaTable(data);
+  renderClientTable(data);
+  renderDailyTable(data);
   renderOperatorChart(data);
-  renderMediaChart(data);
-  renderClientChart(data);
-  renderDailyTrend(data);
   renderDailyChange(data);
   renderMediaAnomalies(data);
   renderOperatorAnomalies(data);
@@ -159,51 +159,55 @@ function renderOperatorChart(data) {
   });
 }
 
-function renderMediaChart(data) {
+function renderMediaTable(data) {
   const grouped = groupBy(data, '媒体');
-  const labels = [...grouped.keys()].sort();
-  const values = labels.map(k => sum(grouped.get(k).map(r => r.消耗)));
-  const colors = ['#1677ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96','#f5222d','#fa8c16','#a0d911'];
-  destroyChart('chartMedia');
-  charts.chartMedia = new Chart(document.getElementById('chartMedia'), {
-    type:'pie', data:{ labels, datasets:[{ data:values, backgroundColor:colors.slice(0,labels.length), borderWidth:0 }] },
-    options:{ responsive:true, maintainAspectRatio:true,
-      plugins:{ legend:{ position:'right', labels:{ font:{ size:11 } } } },
-      tooltip:{ callbacks:{ label:ctx => ctx.label + ': ' + ctx.parsed.toLocaleString('zh-CN',{minimumFractionDigits:2}) } } }
-  });
+  const total = sum(data.map(r => r.消耗));
+  let entries = [...grouped.entries()].map(([k,v]) => ({ name:k, value:sum(v.map(r=>r.消耗)) }));
+  entries.sort((a,b) => b.value - a.value);
+  const maxVal = entries.length > 0 ? entries[0].value : 0;
+  const tbody = document.querySelector('#mediaTable');
+  tbody.innerHTML = '<tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr>' + entries.map((e,i) => {
+    const pct = total > 0 ? (e.value / total * 100).toFixed(1) : 0;
+    const barW = maxVal > 0 ? (e.value / maxVal * 100) : 0;
+    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#1677ff;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
+  }).join('');
 }
 
-function renderClientChart(data) {
+function renderClientTable(data) {
   const grouped = groupBy(data, '客户');
-  let entries = [...grouped.entries()].map(([k,v]) => ({ name:k, total:sum(v.map(r=>r.消耗)) }));
-  entries.sort((a,b) => b.total - a.total);
+  const total = sum(data.map(r => r.消耗));
+  let entries = [...grouped.entries()].map(([k,v]) => ({ name:k, value:sum(v.map(r=>r.消耗)) }));
+  entries.sort((a,b) => b.value - a.value);
   entries = entries.slice(0, 10);
-  const labels = entries.map(e => e.name);
-  const values = entries.map(e => e.total);
-  const colors = ['#1677ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96','#f5222d','#fa8c16','#a0d911'];
-  destroyChart('chartClient');
-  charts.chartClient = new Chart(document.getElementById('chartClient'), {
-    type:'bar', data:{ labels, datasets:[{ label:'消耗', data:values, backgroundColor:colors.slice(0,values.length), borderRadius:4 }] },
-    options:{ responsive:true, maintainAspectRatio:true, indexAxis:'y',
-      plugins:{ legend:{ display:false } },
-      scales:{ x:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
-  });
+  const maxVal = entries.length > 0 ? entries[0].value : 0;
+  const tbody = document.querySelector('#clientTable');
+  tbody.innerHTML = '<tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr>' + entries.map((e,i) => {
+    const pct = total > 0 ? (e.value / total * 100).toFixed(1) : 0;
+    const barW = maxVal > 0 ? (e.value / maxVal * 100) : 0;
+    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#722ed1;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
+  }).join('');
 }
 
-function renderDailyTrend(data) {
+function renderDailyTable(data) {
   const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
   const grouped = groupBy(data, '日期');
   const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
-  destroyChart('chartDaily');
-  charts.chartDaily = new Chart(document.getElementById('chartDaily'), {
-    type:'line', data:{ labels:dates, datasets:[{
-      label:'消耗', data:values, borderColor:'#1677ff', backgroundColor:'rgba(22,119,255,0.1)',
-      fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#1677ff'
-    }]},
-    options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
-      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
-  });
+  const changes = [];
+  for (let i = 0; i < values.length; i++) {
+    if (i === 0) { changes.push(0); }
+    else { const p = values[i-1]; changes.push(p > 0 ? ((values[i]-p)/p*100) : (values[i]>0?100:0)); }
+  }
+  const tbody = document.querySelector('#dailyTable');
+  tbody.innerHTML = '<tr><th>日期</th><th>消耗</th><th>涨跌幅</th></tr>' + dates.map((d,i) => {
+    const cls = changes[i] > 0 ? 'up' : (changes[i] < 0 ? 'down' : '');
+    const sign = changes[i] > 0 ? '+' : '';
+    return '<tr><td>'+d+'</td><td>'+values[i].toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td><td class="'+cls+'">'+sign+changes[i].toFixed(1)+'%</td></tr>';
+  }).join('');
 }
+
+
+
+
 
 function renderDailyChange(data) {
   const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
@@ -325,6 +329,9 @@ initDashboard();
 </script>
 </body>
 </html>
+
+
+
 
 
 
