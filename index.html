@@ -258,6 +258,61 @@ function renderMediaAnomalies(data) {
   changes.sort((a, b) => b.pct - a.pct);
   const top5Rise = changes.slice(0, 5);
   const top5Fall = changes.slice(-5).reverse();
+  const maxPct = Math.max(...changes.map(c => Math.abs(c.pct)), 1);
+
+  function renderRow(c, isRise) {
+    const absPct = Math.abs(c.pct);
+    const barW = (absPct / maxPct * 100).toFixed(0);
+    const color = isRise ? '#ff4d4f' : '#52c41a';
+    const arrow = isRise ? '↗' : '↘';
+    const sign = isRise ? '+' : '';
+    return '<tr>' +
+      '<td style="font-weight:600;">'+c.media+'</td>' +
+      '<td>'+c.date+'</td>' +
+      '<td style="text-align:right;">'+c.prev.toFixed(2)+'</td>' +
+      '<td style="text-align:right;">'+c.curr.toFixed(2)+'</td>' +
+      '<td style="text-align:right;color:'+color+';font-weight:600;">'+arrow+' '+sign+absPct.toFixed(1)+'%</td>' +
+      '<td style="width:120px;"><div style="background:#f0f0f0;border-radius:6px;height:8px;"><div style="background:'+color+';height:8px;border-radius:6px;width:'+barW+'%;"></div></div></td>' +
+      '</tr>';
+  }
+
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+  html += '<div style="background:#fff5f5;border-radius:8px;padding:14px;border:1px solid #ffd9d9;"><h4 style="margin-bottom:12px;color:#cf1322;font-size:14px;">📈 上升 Top5</h4><table class="data-table" style="font-size:12px;"><tr><th>媒体</th><th>日期</th><th style="text-align:right;">前日消耗</th><th style="text-align:right;">当日消耗</th><th style="text-align:right;">涨幅</th><th>趋势</th></tr>';
+  top5Rise.forEach(c => { html += renderRow(c, true); });
+  html += '</table></div>';
+
+  html += '<div style="background:#f6ffed;border-radius:8px;padding:14px;border:1px solid #d9f7be;"><h4 style="margin-bottom:12px;color:#389e0d;font-size:14px;">📉 下降 Top5</h4><table class="data-table" style="font-size:12px;"><tr><th>媒体</th><th>日期</th><th style="text-align:right;">前日消耗</th><th style="text-align:right;">当日消耗</th><th style="text-align:right;">降幅</th><th>趋势</th></tr>';
+  top5Fall.forEach(c => { html += renderRow(c, false); });
+  html += '</table></div></div>';
+  document.getElementById('anomalyTables').innerHTML = html;
+}
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const mediaDaily = {};
+  const grouped = groupBy(data, '媒体');
+  grouped.forEach((items, media) => {
+    const byDate = groupBy(items, '日期');
+    mediaDaily[media] = {};
+    dates.forEach(d => { const items2 = byDate.get(d); mediaDaily[media][d] = items2 ? sum(items2.map(r => r.消耗)) : 0; });
+  });
+
+  let changes = [];
+  Object.entries(mediaDaily).forEach(([media, daily]) => {
+    for (let i = 1; i < dates.length; i++) {
+      const prev = daily[dates[i-1]] || 0;
+      const curr = daily[dates[i]] || 0;
+      const diff = curr - prev;
+      const pct = prev > 0 ? (diff / prev * 100) : (curr > 0 ? 100 : 0);
+      changes.push({ media, date:dates[i], prev, curr, diff, pct });
+    }
+  });
+  
+  if (changes.length === 0) {
+    document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">暂无足够数据计算异动</p>';
+    return;
+  }
+  changes.sort((a, b) => b.pct - a.pct);
+  const top5Rise = changes.slice(0, 5);
+  const top5Fall = changes.slice(-5).reverse();
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
   html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>涨幅</th></tr>';
   top5Rise.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+c.prev.toFixed(2)+'</td><td>'+c.curr.toFixed(2)+'</td><td class="up">+'+c.pct.toFixed(1)+'%</td></tr>'; });
@@ -329,6 +384,7 @@ initDashboard();
 </script>
 </body>
 </html>
+
 
 
 
