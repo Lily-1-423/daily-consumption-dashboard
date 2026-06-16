@@ -1,0 +1,330 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>运营消耗看板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root { --bg:#f0f2f5; --card:#fff; --primary:#1677ff; --success:#52c41a; --warning:#faad14; --danger:#ff4d4f; --text:#1f1f1f; --text2:#666; --border:#e8e8e8; --radius:8px; --shadow:0 1px 4px rgba(0,0,0,0.06); }
+body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+.app { display:flex; min-height:100vh; }
+.sidebar { width:220px; background:#001529; color:#fff; padding:20px 0; flex-shrink:0; }
+.sidebar h2 { padding:0 20px 20px; font-size:16px; font-weight:600; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:12px; }
+.sidebar .nav-item { padding:10px 20px; cursor:pointer; font-size:14px; transition:all .2s; }
+.sidebar .nav-item:hover { background:rgba(255,255,255,0.08); }
+.sidebar .nav-item.active { background:var(--primary); font-weight:600; }
+.main { flex:1; padding:24px; overflow-y:auto; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+.header h1 { font-size:22px; font-weight:600; }
+.header-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.header-controls select { padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:#fff; cursor:pointer; min-width:120px; }
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+.stat-card { background:var(--card); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow); }
+.stat-card .label { font-size:13px; color:var(--text2); margin-bottom:4px; }
+.stat-card .value { font-size:24px; font-weight:700; }
+.stat-card .sub { font-size:12px; color:var(--text2); margin-top:2px; }
+.chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+.chart-box { background:var(--card); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); }
+.chart-box.full { grid-column:1/-1; }
+.chart-box h3 { font-size:15px; font-weight:600; margin-bottom:14px; }
+.chart-box canvas { max-height:320px; }
+.data-table { width:100%; border-collapse:collapse; font-size:13px; }
+.data-table th { background:#fafafa; text-align:left; padding:10px 12px; font-weight:600; border-bottom:2px solid var(--border); }
+.data-table td { padding:8px 12px; border-bottom:1px solid var(--border); }
+.data-table tr:hover { background:#f5f5f5; }
+.data-table .up { color:var(--danger); }
+.data-table .down { color:var(--success); }
+.anomaly { padding:20px; background:var(--card); border-radius:var(--radius); margin-bottom:20px; box-shadow:var(--shadow); }
+.anomaly h3 { font-size:15px; font-weight:600; margin-bottom:12px; }
+@media (max-width:900px) {
+  .app { flex-direction:column; }
+  .sidebar { width:100%; padding:12px 0; display:flex; flex-wrap:wrap; }
+  .sidebar h2 { width:100%; padding:0 16px 12px; }
+  .sidebar .nav-item { padding:8px 16px; }
+  .stats { grid-template-columns:repeat(2,1fr); }
+  .chart-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar" id="sidebar">
+    <h2>📊 运营看板</h2>
+    <div class="nav-item active" data-group="王孟">👥 王孟组</div>
+    <div class="nav-item" data-group="钱世豪">👥 钱世豪组</div>
+  </div>
+  <div class="main" id="main">
+    <div class="header">
+      <h1 id="groupTitle">王孟组 · 运营看板</h1>
+      <div class="header-controls">
+        <select id="filterOperator" onchange="applyFilters()"><option value="">全部运营人员</option></select>
+        <select id="filterMedia" onchange="applyFilters()"><option value="">全部媒体</option></select>
+      </div>
+    </div>
+    <div class="stats" id="statsRow"></div>
+    <div class="chart-grid">
+      <div class="chart-box"><h3>运营人员消耗</h3><canvas id="chartOperator"></canvas></div>
+      <div class="chart-box"><h3>媒体消耗分布</h3><canvas id="chartMedia"></canvas></div>
+      <div class="chart-box full"><h3>客户消耗 Top10</h3><canvas id="chartClient"></canvas></div>
+      <div class="chart-box"><h3>每日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
+      <div class="chart-box"><h3>每日跌涨幅</h3><canvas id="chartChange"></canvas></div>
+    </div>
+    <div class="anomaly" id="anomalySection"><h3>🔔 媒体异动 · 每日上升/下降 Top5</h3><div id="anomalyTables"></div></div>
+    <div class="anomaly" id="anomalyOperator"><h3>🔔 运营人员消耗异动 Top3 媒体</h3><div id="anomalyOperatorContent"></div></div>
+  </div>
+</div>
+<script src="数据.js"></script>
+<script>
+// Helper functions
+function sum(arr) { return arr.reduce((a,b)=>a+b, 0); }
+function groupBy(arr, key) {
+  const m = new Map();
+  arr.forEach(o => { const k = o[key]; if (!m.has(k)) m.set(k, []); m.get(k).push(o); });
+  return m;
+}
+
+let charts = {};
+let currentGroup = '王孟';
+
+function getGroupData(group) {
+  let data = RAW_DATA.filter(r => r.盟效运营组 === group && r.账户操作人 !== '/');
+  const op = document.getElementById('filterOperator').value;
+  const md = document.getElementById('filterMedia').value;
+  if (op) data = data.filter(r => r.账户操作人 === op);
+  if (md) data = data.filter(r => r.媒体 === md);
+  return data;
+}
+
+function switchGroup(group) {
+  currentGroup = group;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.group === group);
+  });
+  document.getElementById('groupTitle').textContent = group + '组 · 运营看板';
+  updateFilters();
+  applyFilters();
+}
+
+function updateFilters() {
+  const data = RAW_DATA.filter(r => r.盟效运营组 === currentGroup && r.账户操作人 !== '/');
+  const ops = [...new Set(data.map(r => r.账户操作人))].sort();
+  const meds = [...new Set(data.map(r => r.媒体))].sort();
+  const selOp = document.getElementById('filterOperator');
+  const selMd = document.getElementById('filterMedia');
+  const curOp = selOp.value;
+  const curMd = selMd.value;
+  selOp.innerHTML = '<option value="">全部运营人员</option>' + ops.map(o => '<option value="'+o+'">'+o+'</option>').join('');
+  selMd.innerHTML = '<option value="">全部媒体</option>' + meds.map(m => '<option value="'+m+'">'+m+'</option>').join('');
+  selOp.value = curOp;
+  selMd.value = curMd;
+}
+
+function applyFilters() {
+  const data = getGroupData(currentGroup);
+  renderStats(data);
+  renderOperatorChart(data);
+  renderMediaChart(data);
+  renderClientChart(data);
+  renderDailyTrend(data);
+  renderDailyChange(data);
+  renderMediaAnomalies(data);
+  renderOperatorAnomalies(data);
+}
+
+function renderStats(data) {
+  const totalConsumption = sum(data.map(r => r.消耗));
+  const operators = new Set(data.map(r => r.账户操作人)).size;
+  const media = new Set(data.map(r => r.媒体)).size;
+  const clients = new Set(data.map(r => r.客户)).size;
+  document.getElementById('statsRow').innerHTML = [
+    { label:'总消耗', value:totalConsumption.toLocaleString('zh-CN',{minimumFractionDigits:2}), sub:'总计' },
+    { label:'运营人员', value:operators, sub:'人' },
+    { label:'媒体数', value:media, sub:'个' },
+    { label:'客户数', value:clients, sub:'个' }
+  ].map(s => '<div class="stat-card"><div class="label">'+s.label+'</div><div class="value">'+s.value+'</div><div class="sub">'+s.sub+'</div></div>').join('');
+}
+
+function renderOperatorChart(data) {
+  const grouped = groupBy(data, '账户操作人');
+  const labels = [...grouped.keys()].sort();
+  const values = labels.map(k => sum(grouped.get(k).map(r => r.消耗)));
+  const colors = ['#1677ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96'];
+  destroyChart('chartOperator');
+  charts.chartOperator = new Chart(document.getElementById('chartOperator'), {
+    type:'bar', data:{ labels, datasets:[{ label:'消耗', data:values, backgroundColor:colors.slice(0,values.length), borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
+      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
+  });
+}
+
+function renderMediaChart(data) {
+  const grouped = groupBy(data, '媒体');
+  const labels = [...grouped.keys()].sort();
+  const values = labels.map(k => sum(grouped.get(k).map(r => r.消耗)));
+  const colors = ['#1677ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96','#f5222d','#fa8c16','#a0d911'];
+  destroyChart('chartMedia');
+  charts.chartMedia = new Chart(document.getElementById('chartMedia'), {
+    type:'pie', data:{ labels, datasets:[{ data:values, backgroundColor:colors.slice(0,labels.length), borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ position:'right', labels:{ font:{ size:11 } } } },
+      tooltip:{ callbacks:{ label:ctx => ctx.label + ': ' + ctx.parsed.toLocaleString('zh-CN',{minimumFractionDigits:2}) } } }
+  });
+}
+
+function renderClientChart(data) {
+  const grouped = groupBy(data, '客户');
+  let entries = [...grouped.entries()].map(([k,v]) => ({ name:k, total:sum(v.map(r=>r.消耗)) }));
+  entries.sort((a,b) => b.total - a.total);
+  entries = entries.slice(0, 10);
+  const labels = entries.map(e => e.name);
+  const values = entries.map(e => e.total);
+  const colors = ['#1677ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96','#f5222d','#fa8c16','#a0d911'];
+  destroyChart('chartClient');
+  charts.chartClient = new Chart(document.getElementById('chartClient'), {
+    type:'bar', data:{ labels, datasets:[{ label:'消耗', data:values, backgroundColor:colors.slice(0,values.length), borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:true, indexAxis:'y',
+      plugins:{ legend:{ display:false } },
+      scales:{ x:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
+  });
+}
+
+function renderDailyTrend(data) {
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const grouped = groupBy(data, '日期');
+  const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
+  destroyChart('chartDaily');
+  charts.chartDaily = new Chart(document.getElementById('chartDaily'), {
+    type:'line', data:{ labels:dates, datasets:[{
+      label:'消耗', data:values, borderColor:'#1677ff', backgroundColor:'rgba(22,119,255,0.1)',
+      fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#1677ff'
+    }]},
+    options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
+      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
+  });
+}
+
+function renderDailyChange(data) {
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const grouped = groupBy(data, '日期');
+  const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
+  const changes = [];
+  for (let i = 1; i < values.length; i++) {
+    changes.push(values[i-1] === 0 ? 0 : (values[i] - values[i-1]) / values[i-1] * 100);
+  }
+  const labels = dates.slice(1);
+  const colors = changes.map(v => v >= 0 ? '#ff4d4f' : '#52c41a');
+  destroyChart('chartChange');
+  if (labels.length > 0) {
+    charts.chartChange = new Chart(document.getElementById('chartChange'), {
+      type:'bar', data:{ labels, datasets:[{ label:'涨跌幅 %', data:changes, backgroundColor:colors, borderRadius:4 }]},
+      options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label:ctx => ctx.parsed.y.toFixed(2) + '%' } } },
+        scales:{ y:{ ticks:{ callback:v => v.toFixed(1) + '%' } } } }
+    });
+  }
+}
+
+function renderMediaAnomalies(data) {
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const mediaDaily = {};
+  const grouped = groupBy(data, '媒体');
+  grouped.forEach((items, media) => {
+    const byDate = groupBy(items, '日期');
+    mediaDaily[media] = {};
+    dates.forEach(d => { const items2 = byDate.get(d); mediaDaily[media][d] = items2 ? sum(items2.map(r => r.消耗)) : 0; });
+  });
+
+  let changes = [];
+  Object.entries(mediaDaily).forEach(([media, daily]) => {
+    for (let i = 1; i < dates.length; i++) {
+      const prev = daily[dates[i-1]] || 0;
+      const curr = daily[dates[i]] || 0;
+      const diff = curr - prev;
+      const pct = prev > 0 ? (diff / prev * 100) : (curr > 0 ? 100 : 0);
+      changes.push({ media, date:dates[i], prev, curr, diff, pct });
+    }
+  });
+  
+  if (changes.length === 0) {
+    document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">暂无足够数据计算异动</p>';
+    return;
+  }
+  changes.sort((a, b) => b.pct - a.pct);
+  const top5Rise = changes.slice(0, 5);
+  const top5Fall = changes.slice(-5).reverse();
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>涨幅</th></tr>';
+  top5Rise.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+c.prev.toFixed(2)+'</td><td>'+c.curr.toFixed(2)+'</td><td class="up">+'+c.pct.toFixed(1)+'%</td></tr>'; });
+  html += '</table></div>';
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>降幅</th></tr>';
+  top5Fall.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+c.prev.toFixed(2)+'</td><td>'+c.curr.toFixed(2)+'</td><td class="down">'+c.pct.toFixed(1)+'%</td></tr>'; });
+  html += '</table></div></div>';
+  document.getElementById('anomalyTables').innerHTML = html;
+}
+
+function renderOperatorAnomalies(data) {
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const grouped = groupBy(data, '账户操作人');
+  const opChanges = [];
+  grouped.forEach((items, op) => {
+    const byDate = groupBy(items, '日期');
+    const daily = {};
+    const clientGroups = groupBy(items, '客户');
+    let topClient = '';
+    let topClientConsumption = 0;
+    clientGroups.forEach((cItems, cName) => {
+      const total = sum(cItems.map(r => r.消耗));
+      if (total > topClientConsumption) { topClientConsumption = total; topClient = cName; }
+    });
+    dates.forEach(d => { daily[d] = (byDate.get(d) || []).reduce((s,r) => s+r.消耗, 0); });
+    let maxChange = 0;
+    let maxChangeDate = '';
+    for (let i = 1; i < dates.length; i++) {
+      const prev = daily[dates[i-1]] || 0;
+      const curr = daily[dates[i]] || 0;
+      const pct = prev > 0 ? Math.abs((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+      if (pct > maxChange) { maxChange = pct; maxChangeDate = dates[i]; }
+    }
+    opChanges.push({ op, total:sum(items.map(r => r.消耗)), maxChange, maxChangeDate, topClient, topClientConsumption });
+  });
+  opChanges.sort((a, b) => b.maxChange - a.maxChange);
+  const top3 = opChanges.slice(0, 3);
+  const top3Media = top3.map(o => {
+    const opData = data.filter(r => r.账户操作人 === o.op);
+    const mediaGroups = groupBy(opData, '媒体');
+    const mediaList = [...mediaGroups.entries()].map(([k,v]) => ({ name:k, total:sum(v.map(r=>r.消耗)) }));
+    mediaList.sort((a, b) => b.total - a.total);
+    return { op:o.op, media:mediaList.slice(0, 3), total:o.total };
+  });
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">';
+  top3Media.forEach(item => {
+    html += '<div style="background:#f9f9f9;border-radius:8px;padding:14px;"><div style="font-weight:600;margin-bottom:8px;font-size:14px;">👤 '+item.op+'</div>';
+    html += '<div style="font-size:12px;color:#666;margin-bottom:6px;">总消耗: '+item.total.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</div>';
+    html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">Top3 媒体:</div><table class="data-table"><tr><th>媒体</th><th>消耗</th></tr>';
+    item.media.forEach(m => { html += '<tr><td>'+m.name+'</td><td>'+m.total.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td></tr>'; });
+    html += '</table></div>';
+  });
+  html += '</div>';
+  document.getElementById('anomalyOperatorContent').innerHTML = html;
+}
+
+
+function initDashboard() { updateFilters(); applyFilters(); }
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => switchGroup(el.dataset.group));
+});
+// 数据在 数据.js 中加载，DOMContentLoaded 后初始化
+initDashboard();
+</script>
+</body>
+</html>
+
+
+
