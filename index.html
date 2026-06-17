@@ -52,8 +52,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
 <div class="app">
   <div class="sidebar" id="sidebar">
     <h2>📊 运营看板</h2>
-    <div class="nav-item active" data-group="王孟">👥 王孟组</div>
-    <div class="nav-item" data-group="钱世豪">👥 钱世豪组</div>
+    <div id="sidebarItems"></div>
   </div>
   <div class="main" id="main">
     <div class="header">
@@ -332,15 +331,34 @@ function renderTargets(data) {
   }).join('');
 }
 
-function initDashboard() { updateFilters(); applyFilters(); }
+function buildSidebar() {
+  const sidebar = document.getElementById('sidebarItems');
+  const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort();
+  const activeGroup = currentGroup || groups[0];
+  sidebar.innerHTML = groups.map((g, i) => {
+    const isActive = g === activeGroup ? ' active' : '';
+    return '<div class="nav-item' + isActive + '" data-group="' + g + '">👥 ' + g + '组</div>';
+  }).join('');
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', () => switchGroup(el.dataset.group));
+  });
+}
+
+function initDashboard() {
+  buildSidebar();
+  if (!currentGroup) {
+    const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort();
+    currentGroup = groups[0] || '王孟';
+  }
+  document.getElementById('groupTitle').textContent = currentGroup + '组 · 运营看板';
+  updateFilters();
+  applyFilters();
+}
 
 function destroyChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
 }
 
-document.querySelectorAll('.nav-item').forEach(el => {
-  el.addEventListener('click', () => switchGroup(el.dataset.group));
-});
 // 数据在 数据.js 中加载，DOMContentLoaded 后初始化
 initDashboard();
 </script>
