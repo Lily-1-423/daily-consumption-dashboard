@@ -7,36 +7,41 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-:root { --bg:#f0f2f5; --card:#fff; --primary:#1677ff; --success:#52c41a; --warning:#faad14; --danger:#ff4d4f; --text:#1f1f1f; --text2:#666; --border:#e8e8e8; --radius:8px; --shadow:0 1px 4px rgba(0,0,0,0.06); }
+:root { --bg:#f5f6fa; --card:#fff; --primary:#4f6ef7; --primary-light:#eef1ff; --success:#34c759; --warning:#ff9500; --danger:#ff3b30; --text:#1d1d1f; --text2:#86868b; --text3:#aeaeb2; --border:#e5e5ea; --radius:12px; --shadow:0 2px 12px rgba(0,0,0,0.06); --sidebar-bg:#1c1c1e; --sidebar-hover:#2c2c2e; }
 body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
 .app { display:flex; min-height:100vh; }
-.sidebar { width:220px; background:#001529; color:#fff; padding:20px 0; flex-shrink:0; }
+.sidebar { width:240px; background:var(--sidebar-bg); color:#fff; padding:20px 0; flex-shrink:0; }
 .sidebar h2 { padding:0 20px 20px; font-size:16px; font-weight:600; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:12px; }
-.sidebar .nav-item { padding:10px 20px; cursor:pointer; font-size:14px; transition:all .2s; }
+.sidebar .nav-section { padding:8px 20px 4px; font-size:11px; font-weight:600; color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:0.5px; }
+.sidebar .nav-item { padding:10px 20px; cursor:pointer; font-size:14px; color:rgba(255,255,255,0.7); display:flex; align-items:center; gap:10px; transition:all .15s; position:relative; margin:1px 8px; border-radius:8px; }
 .sidebar .nav-item:hover { background:rgba(255,255,255,0.08); }
-.sidebar .nav-item.active { background:var(--primary); font-weight:600; }
-.main { flex:1; padding:24px; overflow-y:auto; }
+.sidebar .nav-item.active { background:var(--primary); color:#fff; font-weight:600; }
+.sidebar .nav-item .nav-dot { width:6px; height:6px; border-radius:50%; background:currentColor; opacity:0.5; flex-shrink:0; }
+.sidebar .nav-item.active .nav-dot { opacity:1; }
+.main { flex:1; padding:28px 32px; overflow-y:auto; }
 .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
 .header h1 { font-size:22px; font-weight:600; }
 .header-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .header-controls select { padding:6px 12px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:#fff; cursor:pointer; min-width:120px; }
 .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
-.stat-card { background:var(--card); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow); }
+.stat-card { background:var(--card); border-radius:var(--radius); padding:20px 24px; box-shadow:var(--shadow); border:1px solid var(--border); }
 .stat-card .label { font-size:13px; color:var(--text2); margin-bottom:4px; }
-.stat-card .value { font-size:24px; font-weight:700; }
+.stat-card .value { font-size:28px; font-weight:700; letter-spacing:-0.5px; }
 .stat-card .sub { font-size:12px; color:var(--text2); margin-top:2px; }
+.target-section { margin-bottom:20px; background:var(--card); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); border:1px solid var(--border); }
+.target-section h3 { font-size:15px; font-weight:600; margin-bottom:14px; }
 .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
-.chart-box { background:var(--card); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); }
+.chart-box { background:var(--card); border-radius:var(--radius); padding:24px; border:1px solid var(--border); box-shadow:var(--shadow); }
 .chart-box.full { grid-column:1/-1; }
 .chart-box h3 { font-size:15px; font-weight:600; margin-bottom:14px; }
 .chart-box canvas { max-height:320px; }
 .data-table { width:100%; border-collapse:collapse; font-size:13px; }
-.data-table th { background:#fafafa; text-align:left; padding:10px 12px; font-weight:600; border-bottom:2px solid var(--border); }
-.data-table td { padding:8px 12px; border-bottom:1px solid var(--border); }
-.data-table tr:hover { background:#f5f5f5; }
+.data-table th { background:var(--bg); text-align:left; padding:10px 14px; font-weight:600; color:var(--text2); border-bottom:1.5px solid var(--border); white-space:nowrap; }
+.data-table td { padding:9px 14px; border-bottom:1px solid var(--border); }
+.data-table tr:hover { background:var(--primary-light); }
 .data-table .up { color:var(--danger); }
 .data-table .down { color:var(--success); }
-.anomaly { padding:20px; background:var(--card); border-radius:var(--radius); margin-bottom:20px; box-shadow:var(--shadow); }
+.anomaly { padding:24px; background:var(--card); border-radius:var(--radius); margin-bottom:24px; border:1px solid var(--border); box-shadow:var(--shadow); }
 .anomaly h3 { font-size:15px; font-weight:600; margin-bottom:12px; }
 @media (max-width:900px) {
   .app { flex-direction:column; }
@@ -51,7 +56,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
 <body>
 <div class="app">
   <div class="sidebar" id="sidebar">
-    <h2>📊 运营看板</h2>
+    <h2>&#x1F4CA; 运营看板</h2>
     <div id="sidebarItems"></div>
   </div>
   <div class="main" id="main">
@@ -63,290 +68,329 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
       </div>
     </div>
     <div class="stats" id="statsRow"></div>
-    <div id="targetSection" style="margin-bottom:20px;background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);"><h3 style="font-size:15px;font-weight:600;margin-bottom:14px;">运营目标及达成情况</h3><table class="data-table" id="targetTable"><tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr></table></div>
+    <div id="targetSection" class="target-section"><h3>运营目标及达成情况</h3><table class="data-table" id="targetTable"><thead><tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr></thead></table></div>
     <div class="chart-grid">
-      <div class="chart-box"><h3>运营人员消耗</h3><canvas id="chartOperator"></canvas></div>
-      <div class="chart-box"><h3>媒体消耗分布</h3><div id="mediaTableContainer"><table class="data-table" id="mediaTable"><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></table></div></div>
-      <div class="chart-box full"><h3>客户消耗 Top10</h3><div id="clientTableContainer"><table class="data-table" id="clientTable"><tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr></table></div></div>
+      <div class="chart-box operator-chart-box"><h3>运营人员消耗</h3><canvas id="chartOperator"></canvas></div>
+      <div class="chart-box media-chart-box"><h3>媒体消耗分布</h3><table class="data-table" id="mediaTable"><thead><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></thead></table></div>
+      <div class="chart-box client-chart-box"><h3>客户消耗 Top10</h3><table class="data-table" id="clientTable"><thead><tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr></thead></table></div>
       <div class="chart-box"><h3>近5日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
-      <div class="chart-box"><h3>近5日涨跌幅</h3><canvas id="chartChange"></canvas></div>
     </div>
-    <div class="anomaly" id="anomalySection"><h3>🔔 媒体异动 · 每日上升/下降 Top5</h3><div id="anomalyTables"></div></div>
-    <div class="anomaly" id="anomalyOperator"><h3>🔔 运营人员消耗异动 Top3 媒体</h3><div id="anomalyOperatorContent"></div></div>
+    <div class="anomaly" id="anomalySection"><h3>&#x1F514; 媒体异动 · 近5日上升/下降 Top5</h3><div id="anomalyTables"></div></div>
   </div>
 </div>
 <script src="数据.js"></script>
 <script>
-// Helper functions
-function sum(arr) { return arr.reduce((a,b)=>a+b, 0); }
+function sum(arr) { return arr.reduce(function(a,b){return a+b;}, 0); }
 function groupBy(arr, key) {
-  const m = new Map();
-  arr.forEach(o => { const k = o[key]; if (!m.has(k)) m.set(k, []); m.get(k).push(o); });
+  var m = new Map();
+  arr.forEach(function(o){ var k = o[key]; if (!m.has(k)) m.set(k, []); m.get(k).push(o); });
   return m;
 }
-
-let charts = {};
-let currentGroup = '王孟';
+var charts = {};
+var currentGroup = '王孟';
 
 function getGroupData(group) {
-  let data = RAW_DATA.filter(r => r.盟效运营组 === group && r.账户操作人 !== '/');
-  const op = document.getElementById('filterOperator').value;
-  const md = document.getElementById('filterMedia').value;
-  if (op) data = data.filter(r => r.账户操作人 === op);
-  if (md) data = data.filter(r => r.媒体 === md);
+  var data = RAW_DATA.filter(function(r){ return r.盟效运营组 === group && r.账户操作人 !== '/'; });
+  var op = document.getElementById('filterOperator').value;
+  var md = document.getElementById('filterMedia').value;
+  if (op) data = data.filter(function(r){ return r.账户操作人 === op; });
+  if (md) data = data.filter(function(r){ return r.媒体 === md; });
   return data;
 }
 
 function switchGroup(group) {
   currentGroup = group;
-  document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.group === group);
-  });
+  var items = document.querySelectorAll('.nav-item');
+  for (var i = 0; i < items.length; i++) {
+    items[i].classList.toggle('active', items[i].dataset.group === group);
+  }
   document.getElementById('groupTitle').textContent = group + '组 · 运营看板';
   updateFilters();
   applyFilters();
 }
 
 function updateFilters() {
-  const data = RAW_DATA.filter(r => r.盟效运营组 === currentGroup && r.账户操作人 !== '/');
-  const ops = [...new Set(data.map(r => r.账户操作人))].sort();
-  const meds = [...new Set(data.map(r => r.媒体))].sort();
-  const selOp = document.getElementById('filterOperator');
-  const selMd = document.getElementById('filterMedia');
-  const curOp = selOp.value;
-  const curMd = selMd.value;
-  selOp.innerHTML = '<option value="">全部运营人员</option>' + ops.map(o => '<option value="'+o+'">'+o+'</option>').join('');
-  selMd.innerHTML = '<option value="">全部媒体</option>' + meds.map(m => '<option value="'+m+'">'+m+'</option>').join('');
+  var data = RAW_DATA.filter(function(r){ return r.盟效运营组 === currentGroup && r.账户操作人 !== '/'; });
+  var ops = [];
+  var seen = new Set();
+  data.forEach(function(r){ if (!seen.has(r.账户操作人)) { seen.add(r.账户操作人); ops.push(r.账户操作人); } });
+  ops.sort();
+  var meds = [];
+  seen = new Set();
+  data.forEach(function(r){ if (!seen.has(r.媒体)) { seen.add(r.媒体); meds.push(r.媒体); } });
+  meds.sort();
+  var selOp = document.getElementById('filterOperator');
+  var selMd = document.getElementById('filterMedia');
+  var curOp = selOp.value;
+  var curMd = selMd.value;
+  var opHtml = '<option value="">全部运营人员</option>';
+  for (var i = 0; i < ops.length; i++) { opHtml += '<option value="' + ops[i] + '">' + ops[i] + '</option>'; }
+  selOp.innerHTML = opHtml;
+  var mdHtml = '<option value="">全部媒体</option>';
+  for (var i = 0; i < meds.length; i++) { mdHtml += '<option value="' + meds[i] + '">' + meds[i] + '</option>'; }
+  selMd.innerHTML = mdHtml;
   selOp.value = curOp;
   selMd.value = curMd;
 }
 
 function applyFilters() {
-  const data = getGroupData(currentGroup);
+  var data = getGroupData(currentGroup);
+  var opFilter = document.getElementById('filterOperator').value;
+  adjustLayoutForFilter(data, opFilter);
   renderStats(data);
   renderOperatorChart(data);
   renderMediaTable(data);
   renderClientTable(data);
-  renderDailyChart(data);
-  renderDailyChange(data);
+  renderDailyTrend(data);
   renderTargets(data);
   renderMediaAnomalies(data);
-  renderOperatorAnomalies(data);
+}
+
+function adjustLayoutForFilter(data, opFilter) {
+  var opChart = document.querySelector('.operator-chart-box');
+  var firstStat = document.querySelector('.stat-card:first-child');
+  if (!opChart || !firstStat) return;
+  if (opFilter) {
+    opChart.style.display = 'none';
+    firstStat.querySelector('.label').textContent = opFilter;
+    firstStat.querySelector('.sub').textContent = '运营人员';
+  } else {
+    opChart.style.display = '';
+    firstStat.querySelector('.label').textContent = '总消耗';
+    firstStat.querySelector('.sub').textContent = '总计';
+  }
 }
 
 function renderStats(data) {
-  const totalConsumption = sum(data.map(r => r.消耗));
-  const operators = new Set(data.map(r => r.账户操作人)).size;
-  const media = new Set(data.map(r => r.媒体)).size;
-  const clients = new Set(data.map(r => r.客户)).size;
-  document.getElementById('statsRow').innerHTML = [
-    { label:'总消耗', value:totalConsumption.toLocaleString('zh-CN',{minimumFractionDigits:2}), sub:'总计' },
+  var totalConsumption = sum(data.map(function(r){ return r.消耗; }));
+  var operators = new Set(data.map(function(r){ return r.账户操作人; })).size;
+  var media = new Set(data.map(function(r){ return r.媒体; })).size;
+  var clients = new Set(data.map(function(r){ return r.客户; })).size;
+  var cards = [
+    { label:'总消耗', value:Math.round(totalConsumption).toLocaleString('zh-CN'), sub:'总计' },
     { label:'运营人员', value:operators, sub:'人' },
     { label:'媒体数', value:media, sub:'个' },
     { label:'客户数', value:clients, sub:'个' }
-  ].map(s => '<div class="stat-card"><div class="label">'+s.label+'</div><div class="value">'+s.value+'</div><div class="sub">'+s.sub+'</div></div>').join('');
+  ];
+  var html = '';
+  for (var i = 0; i < cards.length; i++) {
+    html += '<div class="stat-card"><div class="label">' + cards[i].label + '</div><div class="value">' + cards[i].value + '</div><div class="sub">' + cards[i].sub + '</div></div>';
+  }
+  document.getElementById('statsRow').innerHTML = html;
+  var opFilter = document.getElementById('filterOperator').value;
+  if (opFilter) {
+    var firstStat = document.querySelector('.stat-card:first-child');
+    if (firstStat) { firstStat.querySelector('.label').textContent = opFilter; firstStat.querySelector('.sub').textContent = '运营人员'; }
+  }
 }
 
 function renderOperatorChart(data) {
-  const grouped = groupBy(data, '账户操作人');
-  const labels = [...grouped.keys()].sort();
-  const values = labels.map(k => sum(grouped.get(k).map(r => r.消耗)));
-  const colors = ['#1677ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96'];
+  var grouped = groupBy(data, '账户操作人');
+  var labels = [];
+  var values = [];
+  var keys = [];
+  grouped.forEach(function(v, k){ keys.push(k); });
+  keys.sort();
+  for (var i = 0; i < keys.length; i++) {
+    labels.push(keys[i]);
+    values.push(sum(grouped.get(keys[i]).map(function(r){ return r.消耗; })));
+  }
+  var colors = ['#4f6ef7','#34c759','#ff9500','#ff3b30','#af52de','#5ac8fa','#ff2d55'];
   destroyChart('chartOperator');
   charts.chartOperator = new Chart(document.getElementById('chartOperator'), {
-    type:'bar', data:{ labels, datasets:[{ label:'消耗', data:values, backgroundColor:colors.slice(0,values.length), borderRadius:4 }] },
+    type:'line',
+    data:{ labels:labels, datasets:[{
+      label:'消耗', data:values,
+      borderColor:'#4f6ef7', backgroundColor:'rgba(79,110,247,0.1)',
+      fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#4f6ef7', borderWidth:2
+    }]},
     options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
-      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
+     scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return v.toLocaleString(); } } } } }
   });
 }
 
 function renderMediaTable(data) {
-  const grouped = groupBy(data, '媒体');
-  const total = sum(data.map(r => r.消耗));
-  let entries = [...grouped.entries()].map(([k,v]) => ({ name:k, value:sum(v.map(r=>r.消耗)) }));
-  entries.sort((a,b) => b.value - a.value);
-  const maxVal = entries.length > 0 ? entries[0].value : 0;
-  const tbody = document.querySelector('#mediaTable');
-  tbody.innerHTML = '<tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr>' + entries.map((e,i) => {
-    const pct = total > 0 ? (e.value / total * 100).toFixed(1) : 0;
-    const barW = maxVal > 0 ? (e.value / maxVal * 100) : 0;
-    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#1677ff;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
-  }).join('');
+  var grouped = groupBy(data, '媒体');
+  var total = sum(data.map(function(r){ return r.消耗; }));
+  var entries = [];
+  grouped.forEach(function(v, k){ entries.push({ name:k, value:sum(v.map(function(r){ return r.消耗; })) }); });
+  entries.sort(function(a,b){ return b.value - a.value; });
+  var maxVal = entries.length > 0 ? entries[0].value : 0;
+  var html = '<tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr>';
+  for (var i = 0; i < entries.length; i++) {
+    var pct = total > 0 ? Math.round(entries[i].value / total * 100) : 0;
+    var barW = maxVal > 0 ? (entries[i].value / maxVal * 100) : 0;
+    html += '<tr><td>' + (i+1) + '</td><td>' + entries[i].name + '</td><td>' + Math.round(entries[i].value).toLocaleString('zh-CN') + '</td><td>' + pct + '% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#4f6ef7;height:6px;border-radius:4px;width:' + barW + '%;"></div></div></td></tr>';
+  }
+  document.getElementById('mediaTable').innerHTML = html;
 }
 
 function renderClientTable(data) {
-  const grouped = groupBy(data, '客户');
-  const total = sum(data.map(r => r.消耗));
-  let entries = [...grouped.entries()].map(([k,v]) => ({ name:k, value:sum(v.map(r=>r.消耗)) }));
-  entries.sort((a,b) => b.value - a.value);
+  var grouped = groupBy(data, '客户');
+  var total = sum(data.map(function(r){ return r.消耗; }));
+  var entries = [];
+  grouped.forEach(function(v, k){ entries.push({ name:k, value:sum(v.map(function(r){ return r.消耗; })) }); });
+  entries.sort(function(a,b){ return b.value - a.value; });
   entries = entries.slice(0, 10);
-  const maxVal = entries.length > 0 ? entries[0].value : 0;
-  const tbody = document.querySelector('#clientTable');
-  tbody.innerHTML = '<tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr>' + entries.map((e,i) => {
-    const pct = total > 0 ? (e.value / total * 100).toFixed(1) : 0;
-    const barW = maxVal > 0 ? (e.value / maxVal * 100) : 0;
-    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#722ed1;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
-  }).join('');
+  var maxVal = entries.length > 0 ? entries[0].value : 0;
+  var html = '<tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr>';
+  for (var i = 0; i < entries.length; i++) {
+    var pct = total > 0 ? Math.round(entries[i].value / total * 100) : 0;
+    var barW = maxVal > 0 ? (entries[i].value / maxVal * 100) : 0;
+    html += '<tr><td>' + (i+1) + '</td><td>' + entries[i].name + '</td><td>' + Math.round(entries[i].value).toLocaleString('zh-CN') + '</td><td>' + pct + '% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#af52de;height:6px;border-radius:4px;width:' + barW + '%;"></div></div></td></tr>';
+  }
+  document.getElementById('clientTable').innerHTML = html;
 }
 
-function renderDailyChart(data) {
-  const allDates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
-  const dates = allDates.slice(-5);
-  const grouped = groupBy(data, '日期');
-  const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
+function renderDailyTrend(data) {
+  var allDates = [];
+  var seen = new Set();
+  RAW_DATA.filter(function(r){ return r.盟效运营组 === currentGroup; }).forEach(function(r){
+    if (!seen.has(r.日期)) { seen.add(r.日期); allDates.push(r.日期); }
+  });
+  allDates.sort();
+  var dates = allDates.slice(-5);
+  var grouped = groupBy(data, '日期');
+  var values = [];
+  for (var i = 0; i < dates.length; i++) {
+    var items = grouped.get(dates[i]);
+    values.push(items ? sum(items.map(function(r){ return r.消耗; })) : 0);
+  }
   destroyChart('chartDaily');
   charts.chartDaily = new Chart(document.getElementById('chartDaily'), {
-    type:'line', data:{ labels:dates, datasets:[{
-      label:'消耗', data:values, borderColor:'#1677ff', backgroundColor:'rgba(22,119,255,0.1)',
-      fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#1677ff'
+    type:'line',
+    data:{ labels:dates, datasets:[{
+      label:'消耗', data:values, borderColor:'#4f6ef7', backgroundColor:'rgba(79,110,247,0.1)',
+      fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#4f6ef7'
     }]},
     options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
-      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
+      scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v){ return v.toLocaleString(); } } } },
+      animation:{ duration:500 } }
   });
-}
-
-function renderDailyChange(data) {
-  const allDates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
-  const dates = allDates.slice(-5);
-  const grouped = groupBy(data, '日期');
-  const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
-  const changes = [];
-  for (let i = 1; i < values.length; i++) {
-    changes.push(values[i-1] === 0 ? 0 : (values[i] - values[i-1]) / values[i-1] * 100);
-  }
-  const labels = dates.slice(1);
-  const colors = changes.map(v => v >= 0 ? '#ff4d4f' : '#52c41a');
-  destroyChart('chartChange');
-  if (labels.length > 0) {
-    charts.chartChange = new Chart(document.getElementById('chartChange'), {
-      type:'bar', data:{ labels, datasets:[{ label:'涨跌幅 %', data:changes, backgroundColor:colors, borderRadius:4 }]},
-      options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false },
-        tooltip:{ callbacks:{ label:ctx => ctx.parsed.y.toFixed(2) + '%' } } },
-        scales:{ y:{ ticks:{ callback:v => v.toFixed(1) + '%' } } } }
-    });
-  }
 }
 
 function renderMediaAnomalies(data) {
-  const dates = [...new Set(rawData.map(r => r.日期))].sort();
-  const mediaDaily = {};
-  const grouped = groupBy(data, '媒体');
-  grouped.forEach((items, media) => {
-    const byDate = groupBy(items, '日期');
-    mediaDaily[media] = {};
-    dates.forEach(d => { const items2 = byDate.get(d); mediaDaily[media][d] = items2 ? sum(items2.map(r => r.消耗)) : 0; });
+  var allDates = [];
+  var seen = new Set();
+  RAW_DATA.filter(function(r){ return r.盟效运营组 === currentGroup; }).forEach(function(r){
+    if (!seen.has(r.日期)) { seen.add(r.日期); allDates.push(r.日期); }
   });
-
-  let changes = [];
-  Object.entries(mediaDaily).forEach(([media, daily]) => {
-    for (let i = 1; i < dates.length; i++) {
-      const prev = daily[dates[i-1]] || 0;
-      const curr = daily[dates[i]] || 0;
-      const diff = curr - prev;
-      const pct = prev > 0 ? (diff / prev * 100) : (curr > 0 ? 100 : 0);
-      changes.push({ media, date:dates[i], prev, curr, diff, pct });
-    }
-  });
-  
-  if (changes.length === 0) {
-    document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">暂无足够数据计算异动</p>';
+  allDates.sort();
+  var dates = allDates.slice(-5);
+  if (dates.length < 2) {
+    document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">暂无足够数据</p>';
     return;
   }
-  changes.sort((a, b) => b.pct - a.pct);
-  const top5Rise = changes.slice(0, 5);
-  const top5Fall = changes.slice(-5).reverse();
-  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>涨幅</th></tr>';
-  top5Rise.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+c.prev.toFixed(2)+'</td><td>'+c.curr.toFixed(2)+'</td><td class="up">+'+c.pct.toFixed(1)+'%</td></tr>'; });
+  var mediaDaily = {};
+  var grouped = groupBy(data, '媒体');
+  grouped.forEach(function(items, media){
+    var byDate = groupBy(items, '日期');
+    mediaDaily[media] = {};
+    for (var i = 0; i < dates.length; i++) {
+      var d = dates[i];
+      var it = byDate.get(d);
+      mediaDaily[media][d] = it ? sum(it.map(function(r){ return r.消耗; })) : 0;
+    }
+  });
+  var changes = [];
+  Object.keys(mediaDaily).forEach(function(media){
+    var daily = mediaDaily[media];
+    for (var i = 1; i < dates.length; i++) {
+      var prev = daily[dates[i-1]] || 0;
+      var curr = daily[dates[i]] || 0;
+      var pct = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+      changes.push({ media:media, date:dates[i], prev:prev, curr:curr, pct:pct });
+    }
+  });
+  if (changes.length === 0) {
+    document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">暂无足够数据</p>';
+    return;
+  }
+  changes.sort(function(a,b){ return b.pct - a.pct; });
+  var top5Rise = changes.slice(0, 5);
+  var top5Fall = changes.slice(-5).reverse();
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+  html += '<div><h4 style="margin-bottom:8px;color:#ff3b30;">&#x1F4C8; 上升 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>日环比</th></tr>';
+  for (var i = 0; i < top5Rise.length; i++) {
+    var c = top5Rise[i];
+    html += '<tr><td>' + c.media + '</td><td>' + c.date + '</td><td>' + Math.round(c.prev).toLocaleString('zh-CN') + '</td><td>' + Math.round(c.curr).toLocaleString('zh-CN') + '</td><td class="up">+' + Math.round(c.pct) + '%</td></tr>';
+  }
   html += '</table></div>';
-  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>降幅</th></tr>';
-  top5Fall.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+c.prev.toFixed(2)+'</td><td>'+c.curr.toFixed(2)+'</td><td class="down">'+c.pct.toFixed(1)+'%</td></tr>'; });
+  html += '<div><h4 style="margin-bottom:8px;color:#34c759;">&#x1F4C9; 下降 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>日环比</th></tr>';
+  for (var i = 0; i < top5Fall.length; i++) {
+    var c = top5Fall[i];
+    html += '<tr><td>' + c.media + '</td><td>' + c.date + '</td><td>' + Math.round(c.prev).toLocaleString('zh-CN') + '</td><td>' + Math.round(c.curr).toLocaleString('zh-CN') + '</td><td class="down">' + Math.round(c.pct) + '%</td></tr>';
+  }
   html += '</table></div></div>';
   document.getElementById('anomalyTables').innerHTML = html;
 }
 
-function renderOperatorAnomalies(data) {
-  const dates = [...new Set(rawData.map(r => r.日期))].sort();
-  const grouped = groupBy(data, '账户操作人');
-  const opChanges = [];
-  grouped.forEach((items, op) => {
-    const byDate = groupBy(items, '日期');
-    const daily = {};
-    const clientGroups = groupBy(items, '客户');
-    let topClient = '';
-    let topClientConsumption = 0;
-    clientGroups.forEach((cItems, cName) => {
-      const total = sum(cItems.map(r => r.消耗));
-      if (total > topClientConsumption) { topClientConsumption = total; topClient = cName; }
-    });
-    dates.forEach(d => { daily[d] = (byDate.get(d) || []).reduce((s,r) => s+r.消耗, 0); });
-    let maxChange = 0;
-    let maxChangeDate = '';
-    for (let i = 1; i < dates.length; i++) {
-      const prev = daily[dates[i-1]] || 0;
-      const curr = daily[dates[i]] || 0;
-      const pct = prev > 0 ? Math.abs((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
-      if (pct > maxChange) { maxChange = pct; maxChangeDate = dates[i]; }
-    }
-    opChanges.push({ op, total:sum(items.map(r => r.消耗)), maxChange, maxChangeDate, topClient, topClientConsumption });
-  });
-  opChanges.sort((a, b) => b.maxChange - a.maxChange);
-  const top3 = opChanges.slice(0, 3);
-  const top3Media = top3.map(o => {
-    const opData = data.filter(r => r.账户操作人 === o.op);
-    const mediaGroups = groupBy(opData, '媒体');
-    const mediaList = [...mediaGroups.entries()].map(([k,v]) => ({ name:k, total:sum(v.map(r=>r.消耗)) }));
-    mediaList.sort((a, b) => b.total - a.total);
-    return { op:o.op, media:mediaList.slice(0, 3), total:o.total };
-  });
-  let html = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">';
-  top3Media.forEach(item => {
-    html += '<div style="background:#f9f9f9;border-radius:8px;padding:14px;"><div style="font-weight:600;margin-bottom:8px;font-size:14px;">👤 '+item.op+'</div>';
-    html += '<div style="font-size:12px;color:#666;margin-bottom:6px;">总消耗: '+item.total.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</div>';
-    html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">Top3 媒体:</div><table class="data-table"><tr><th>媒体</th><th>消耗</th></tr>';
-    item.media.forEach(m => { html += '<tr><td>'+m.name+'</td><td>'+m.total.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td></tr>'; });
-    html += '</table></div>';
-  });
-  html += '</div>';
-  document.getElementById('anomalyOperatorContent').innerHTML = html;
 function renderTargets(data) {
-  const rawData = RAW_DATA.filter(r => r.盟效运营组 === currentGroup && r.账户操作人 !== '/');
-  const grouped = groupBy(rawData, '账户操作人');
-  const dates = [...new Set(rawData.map(r => r.日期))].sort();
-  const daysWithData = dates.length || 1;
-  let entries = [...grouped.entries()].map(([k,v]) => {
-    const total = sum(v.map(r => r.消耗));
-    const dailyAvg = total / daysWithData;
-    const target = Math.round(dailyAvg * 22 / 1000) * 1000;
-    const rate = target > 0 ? (total / target * 100) : 0;
-    return { name:k, total, target, rate };
+  var defaultTargets = {
+    "余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,
+    "任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,
+    "陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任娸":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000
+  };
+  var groupOps = [];
+  var seen = new Set();
+  RAW_DATA.filter(function(r){ return r.盟效运营组 === currentGroup && r.账户操作人 !== '/'; }).forEach(function(r){
+    if (!seen.has(r.账户操作人)) { seen.add(r.账户操作人); groupOps.push(r.账户操作人); }
   });
-  entries.sort((a,b) => b.total - a.total);
-  const tbody = document.querySelector('#targetTable');
-  tbody.innerHTML = '<tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr>' + entries.map(e => {
-    const pct = e.rate.toFixed(1);
-    const barColor = e.rate >= 100 ? '#52c41a' : e.rate >= 50 ? '#faad14' : '#ff4d4f';
-    return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td><td>'+pct+'%</td><td><div style="background:#e8e8e8;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;"><div style="background:'+barColor+';height:8px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;"></div></div></td></tr>';
-  }).join('');
+  var entries = [];
+  for (var i = 0; i < groupOps.length; i++) {
+    var k = groupOps[i];
+    var opData = data.filter(function(r){ return r.账户操作人 === k; });
+    var total = opData.length > 0 ? sum(opData.map(function(r){ return r.消耗; })) : 0;
+    var target = defaultTargets[k] || 0;
+    var rate = target > 0 ? (total / target * 100) : 0;
+    entries.push({ name:k, total:total, target:target, rate:rate });
+  }
+  var opFilter = document.getElementById('filterOperator').value;
+  var sectionTitle = document.querySelector('#targetSection h3');
+  if (opFilter) {
+    entries = entries.filter(function(e){ return e.name === opFilter; });
+    sectionTitle.textContent = opFilter + ' · 目标及达成';
+  } else {
+    sectionTitle.textContent = '运营目标及达成情况';
+  }
+  entries.sort(function(a,b){ return b.total - a.total; });
+  var html = '<tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr>';
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i];
+    var pct = Math.round(e.rate);
+    var barColor = e.rate >= 100 ? '#34c759' : e.rate >= 50 ? '#ff9500' : '#ff3b30';
+    html += '<tr><td>' + e.name + '</td><td>' + Math.round(e.target).toLocaleString('zh-CN') + '</td><td>' + Math.round(e.total).toLocaleString('zh-CN') + '</td><td>' + pct + '%</td><td><div style="background:#e8e8e8;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;"><div style="background:' + barColor + ';height:8px;border-radius:4px;width:' + Math.min(100, e.rate) + '%;"></div></div></td></tr>';
+  }
+  document.querySelector('#targetTable').innerHTML = html;
 }
 
 function buildSidebar() {
-  const sidebar = document.getElementById('sidebarItems');
-  const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort();
-  const activeGroup = currentGroup || groups[0];
-  sidebar.innerHTML = groups.map((g, i) => {
-    const isActive = g === activeGroup ? ' active' : '';
-    return '<div class="nav-item' + isActive + '" data-group="' + g + '">👥 ' + g + '组</div>';
-  }).join('');
-  document.querySelectorAll('.nav-item').forEach(el => {
-    el.addEventListener('click', () => switchGroup(el.dataset.group));
+  var groups = [];
+  var seen = new Set();
+  RAW_DATA.forEach(function(r){
+    var g = r.盟效运营组;
+    if (g && g !== '/' && !seen.has(g)) { seen.add(g); groups.push(g); }
   });
+  groups.sort();
+  var html = '<div class="nav-section">运营组</div>';
+  for (var i = 0; i < groups.length; i++) {
+    var g = groups[i];
+    var active = g === currentGroup ? ' active' : '';
+    html += '<div class="nav-item' + active + '" data-group="' + g + '" onclick="switchGroup(\'' + g + '\')"><span class="nav-dot"></span>' + g + '组</div>';
+  }
+  document.getElementById('sidebarItems').innerHTML = html;
 }
 
 function initDashboard() {
   buildSidebar();
   if (!currentGroup) {
-    const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort();
+    var groups = [];
+    var seen = new Set();
+    RAW_DATA.forEach(function(r){
+      var g = r.盟效运营组;
+      if (g && g !== '/' && !seen.has(g)) { seen.add(g); groups.push(g); }
+    });
+    groups.sort();
     currentGroup = groups[0] || '王孟';
   }
   document.getElementById('groupTitle').textContent = currentGroup + '组 · 运营看板';
@@ -358,15 +402,7 @@ function destroyChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
 }
 
-// 数据在 数据.js 中加载，DOMContentLoaded 后初始化
 initDashboard();
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
