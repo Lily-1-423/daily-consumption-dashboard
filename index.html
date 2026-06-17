@@ -69,6 +69,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
       <div class="chart-box"><h3>媒体消耗分布</h3><div id="mediaTableContainer"><table class="data-table" id="mediaTable"><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></table></div></div>
       <div class="chart-box full"><h3>客户消耗 Top10</h3><div id="clientTableContainer"><table class="data-table" id="clientTable"><tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr></table></div></div>
       <div class="chart-box"><h3>每日跌涨幅</h3><canvas id="chartChange"></canvas></div>
+      <div class="chart-box"><h3>每日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
     </div>
     <div class="anomaly" id="anomalySection"><h3>🔔 媒体异动 · 每日上升/下降 Top5</h3><div id="anomalyTables"></div></div>
     <div class="anomaly" id="anomalyOperator"><h3>🔔 运营人员消耗异动 Top3 媒体</h3><div id="anomalyOperatorContent"></div></div>
@@ -99,8 +100,8 @@ function getGroupData(group) {
 function switchGroup(group) {
   currentGroup = group;
   document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.group === group);
-  });
+    el.classList.toggle('active', el.dataset.group === group); });
+
   document.getElementById('groupTitle').textContent = group + '组 · 运营看板';
   updateFilters();
   applyFilters();
@@ -154,8 +155,8 @@ function renderOperatorChart(data) {
   charts.chartOperator = new Chart(document.getElementById('chartOperator'), {
     type:'bar', data:{ labels, datasets:[{ label:'消耗', data:values, backgroundColor:colors.slice(0,values.length), borderRadius:4 }] },
     options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
-      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
-  });
+      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }); }
+
 }
 
 function renderMediaTable(data) {
@@ -190,42 +191,21 @@ function renderClientTable(data) {
 function renderDailyChart(data) {
   const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
   const grouped = groupBy(data, '日期');
-  const rawValues = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
+  const rawValues = dates.map(function(d) { const items = grouped.get(d); return items ? sum(items.map(function(r) { return r.消耗; })) : 0; });
   destroyChart('chartDaily');
   if (dates.length === 0) return;
-  const colors = rawValues.map((v,i) => { if (i===0) return '#1677ff'; return v >= rawValues[i-1] ? '#ff4d4f' : '#52c41a'; });
+  const ptColors = rawValues.map(function(v,i) { if (i===0) return '#1677ff'; return v >= rawValues[i-1] ? '#ff4d4f' : '#52c41a'; });
   charts.chartDaily = new Chart(document.getElementById('chartDaily'), {
-    type:'line', data:{ labels:dates, datasets:[{
-      label:'消耗', data:rawValues, borderColor:'#1677ff', backgroundColor:'rgba(22,119,255,0.1)',
-      fill:true, tension:0.3, pointRadius:5, pointBackgroundColor:colors,
-      pointBorderColor:colors, pointBorderWidth:2
-    }]},
-    options:{ responsive:true, maintainAspectRatio:true,
-      plugins:{ legend:{ display:false },
-        tooltip:{ callbacks:{ label:ctx => '消耗: ' + ctx.parsed.y.toLocaleString('zh-CN',{minimumFractionDigits:2}) } } },
-      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } }
-    },
-    plugins:[{
-      id:'customLabels',
-      afterDraw(chart) {
-        const ctx = chart.ctx; chart.data.datasets.forEach((ds,i) => {
-          const meta = chart.getDatasetMeta(i); meta.data.forEach((bar,j) => {
-            const val = ds.data[j]; if (val === 0) return;
-            ctx.fillStyle = colors[j] || '#1677ff';
-            ctx.font = 'bold 11px -apple-system, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(val.toLocaleString('zh-CN',{minimumFractionDigits:0}), bar.x, bar.y - 10);
-          });
-        });
-      }
-    }]
+    type:'line',
+    data: { labels:dates, datasets:[{ label:'消耗', data:rawValues, borderColor:'#1677ff', backgroundColor:'rgba(22,119,255,0.1)', fill:true, tension:0.3, pointRadius:5, pointBackgroundColor:ptColors, pointBorderColor:ptColors, pointBorderWidth:2 }] },
+    options: { responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(ctx) { return ctx.parsed.y.toLocaleString('zh-CN',{minimumFractionDigits:2}); } } } }, scales:{ y:{ beginAtZero:true, ticks:{ callback:function(v) { return v.toLocaleString(); } } } } }
   });
-});
+}
 
 function renderDailyChange(data) {
   const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
   const grouped = groupBy(data, '日期');
-  const rawValues = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
+  const rawValues = dates.map(function(d) { const items = grouped.get(d); return items ? sum(items.map(function(r) { return r.消耗; })) : 0; });
   const values = [];
   const labels = [];
   for (let i = 1; i < rawValues.length; i++) {
@@ -237,37 +217,14 @@ function renderDailyChange(data) {
   }
   destroyChart('chartChange');
   if (labels.length === 0) return;
-  const colors = values.map(v => v >= 0 ? '#ff4d4f' : '#52c41a');
-  const bgColors = values.map(v => v >= 0 ? 'rgba(255,77,79,0.1)' : 'rgba(82,196,26,0.1)');
+  const colors = values.map(function(v) { return v >= 0 ? '#ff4d4f' : '#52c41a'; });
+  const bgColors = values.map(function(v) { return v >= 0 ? 'rgba(255,77,79,0.1)' : 'rgba(82,196,26,0.1)'; });
   charts.chartChange = new Chart(document.getElementById('chartChange'), {
-    type:'line', data:{ labels, datasets:[{
-      label:'涨跌幅 %', data:values, borderColor:'#1677ff', backgroundColor:bgColors,
-      fill:true, tension:0.3, pointRadius:5, pointBackgroundColor:colors,
-      pointBorderColor:colors, pointBorderWidth:2
-    }]},
-    options:{ responsive:true, maintainAspectRatio:true,
-      plugins:{ legend:{ display:false },
-        tooltip:{ callbacks:{ label:function(ctx) { return ctx.parsed.y.toFixed(2) + '%'; } } }
-      },
-      scales:{ y:{ ticks:{ callback:function(v) { return v.toFixed(1) + '%'; } } } }
-    },
-    plugins:[{
-      id:'customLabels2',
-      afterDraw:function(chart) {
-        var ctx = chart.ctx; chart.data.datasets.forEach(function(ds,i) {
-          var meta = chart.getDatasetMeta(i); meta.data.forEach(function(bar,j) {
-            var val = ds.data[j];
-            ctx.fillStyle = val >= 0 ? '#ff4d4f' : '#52c41a';
-            ctx.font = 'bold 11px -apple-system, sans-serif';
-            ctx.textAlign = 'center';
-            var sign = val > 0 ? '+' : '';
-            ctx.fillText(sign + val.toFixed(1) + '%', bar.x, bar.y - 10);
-          });
-        });
-      }
-    }]
+    type:'line', data:{ labels:labels, datasets:[{ label:'涨跌幅 %', data:values, borderColor:'#1677ff', backgroundColor:bgColors, fill:true, tension:0.3, pointRadius:5, pointBackgroundColor:colors, pointBorderColor:colors, pointBorderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:function(ctx) { return ctx.parsed.y.toFixed(2) + '%'; } } } }, scales:{ y:{ ticks:{ callback:function(v) { return v.toFixed(1) + '%'; } } } } }
   });
 }
+
 function renderMediaAnomalies(data) {
   const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
   const mediaDaily = {};
@@ -276,7 +233,9 @@ function renderMediaAnomalies(data) {
     const byDate = groupBy(items, '日期');
     mediaDaily[media] = {};
     dates.forEach(d => { const items2 = byDate.get(d); mediaDaily[media][d] = items2 ? sum(items2.map(r => r.消耗)) : 0; });
+
   });
+
 
   let changes = [];
   Object.entries(mediaDaily).forEach(([media, daily]) => {
@@ -287,7 +246,7 @@ function renderMediaAnomalies(data) {
       const pct = prev > 0 ? (diff / prev * 100) : (curr > 0 ? 100 : 0);
       changes.push({ media, date:dates[i], prev, curr, diff, pct });
     }
-  });
+
   
   if (changes.length === 0) {
     document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">暂无足够数据计算异动</p>';
@@ -298,7 +257,7 @@ function renderMediaAnomalies(data) {
   const top5Fall = changes.slice(-5).reverse();
   const maxPct = Math.max(...changes.map(c => Math.abs(c.pct)), 1);
 
-  function renderRow(c, isRise) {
+  function renderRow(c, isRise, maxPct) {
     const absPct = Math.abs(c.pct);
     const barW = (absPct / maxPct * 100).toFixed(0);
     const color = isRise ? '#ff4d4f' : '#52c41a';
@@ -316,13 +275,15 @@ function renderMediaAnomalies(data) {
 
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
   html += '<div style="background:#fff5f5;border-radius:8px;padding:14px;border:1px solid #ffd9d9;"><h4 style="margin-bottom:12px;color:#cf1322;font-size:14px;">📈 上升 Top5</h4><table class="data-table" style="font-size:12px;"><tr><th>媒体</th><th>日期</th><th style="text-align:right;">前日消耗</th><th style="text-align:right;">当日消耗</th><th style="text-align:right;">涨幅</th><th>趋势</th></tr>';
-  top5Rise.forEach(c => { html += renderRow(c, true); });
+  top5Rise.forEach(c => { html += renderRow(c, true, maxPct); });
   html += '</table></div>';
 
   html += '<div style="background:#f6ffed;border-radius:8px;padding:14px;border:1px solid #d9f7be;"><h4 style="margin-bottom:12px;color:#389e0d;font-size:14px;">📉 下降 Top5</h4><table class="data-table" style="font-size:12px;"><tr><th>媒体</th><th>日期</th><th style="text-align:right;">前日消耗</th><th style="text-align:right;">当日消耗</th><th style="text-align:right;">降幅</th><th>趋势</th></tr>';
-  top5Fall.forEach(c => { html += renderRow(c, false); });
+  top5Fall.forEach(c => { html += renderRow(c, false, maxPct); });
   html += '</table></div></div>';
   document.getElementById('anomalyTables').innerHTML = html;
+}
+
 }
 function renderOperatorAnomalies(data) {
   const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
@@ -337,7 +298,7 @@ function renderOperatorAnomalies(data) {
     clientGroups.forEach((cItems, cName) => {
       const total = sum(cItems.map(r => r.消耗));
       if (total > topClientConsumption) { topClientConsumption = total; topClient = cName; }
-    });
+  
     dates.forEach(d => { daily[d] = (byDate.get(d) || []).reduce((s,r) => s+r.消耗, 0); });
     let maxChange = 0;
     let maxChangeDate = '';
@@ -348,7 +309,7 @@ function renderOperatorAnomalies(data) {
       if (pct > maxChange) { maxChange = pct; maxChangeDate = dates[i]; }
     }
     opChanges.push({ op, total:sum(items.map(r => r.消耗)), maxChange, maxChangeDate, topClient, topClientConsumption });
-  });
+
   opChanges.sort((a, b) => b.maxChange - a.maxChange);
   const top3 = opChanges.slice(0, 3);
   const top3Media = top3.map(o => {
@@ -357,7 +318,7 @@ function renderOperatorAnomalies(data) {
     const mediaList = [...mediaGroups.entries()].map(([k,v]) => ({ name:k, total:sum(v.map(r=>r.消耗)) }));
     mediaList.sort((a, b) => b.total - a.total);
     return { op:o.op, media:mediaList.slice(0, 3), total:o.total };
-  });
+
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">';
   top3Media.forEach(item => {
     html += '<div style="background:#f9f9f9;border-radius:8px;padding:14px;"><div style="font-weight:600;margin-bottom:8px;font-size:14px;">👤 '+item.op+'</div>';
@@ -365,11 +326,16 @@ function renderOperatorAnomalies(data) {
     html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;">Top3 媒体:</div><table class="data-table"><tr><th>媒体</th><th>消耗</th></tr>';
     item.media.forEach(m => { html += '<tr><td>'+m.name+'</td><td>'+m.total.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td></tr>'; });
     html += '</table></div>';
-  });
+
   html += '</div>';
   document.getElementById('anomalyOperatorContent').innerHTML = html;
-}
 
+
+
+}
+}
+}
+}
 
 function initDashboard() { updateFilters(); applyFilters(); }
 
@@ -385,6 +351,13 @@ initDashboard();
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
 
 
 
