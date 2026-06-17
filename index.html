@@ -228,7 +228,7 @@ function renderDailyChange(data) {
 }
 
 function renderMediaAnomalies(data) {
-  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const dates = [...new Set(rawData.map(r => r.日期))].sort();
   const mediaDaily = {};
   const grouped = groupBy(data, '媒体');
   grouped.forEach((items, media) => {
@@ -266,7 +266,7 @@ function renderMediaAnomalies(data) {
 }
 
 function renderOperatorAnomalies(data) {
-  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const dates = [...new Set(rawData.map(r => r.日期))].sort();
   const grouped = groupBy(data, '账户操作人');
   const opChanges = [];
   grouped.forEach((items, op) => {
@@ -309,11 +309,10 @@ function renderOperatorAnomalies(data) {
   });
   html += '</div>';
   document.getElementById('anomalyOperatorContent').innerHTML = html;
-}
-
 function renderTargets(data) {
-  const grouped = groupBy(data, '账户操作人');
-  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const rawData = RAW_DATA.filter(r => r.盟效运营组 === currentGroup && r.账户操作人 !== '/');
+  const grouped = groupBy(rawData, '账户操作人');
+  const dates = [...new Set(rawData.map(r => r.日期))].sort();
   const daysWithData = dates.length || 1;
   let entries = [...grouped.entries()].map(([k,v]) => {
     const total = sum(v.map(r => r.消耗));
