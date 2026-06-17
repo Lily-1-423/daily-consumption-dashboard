@@ -64,12 +64,13 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
       </div>
     </div>
     <div class="stats" id="statsRow"></div>
+    <div id="targetSection" style="margin-bottom:20px;background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);"><h3 style="font-size:15px;font-weight:600;margin-bottom:14px;">运营目标及达成情况</h3><table class="data-table" id="targetTable"><tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr></table></div>
     <div class="chart-grid">
       <div class="chart-box"><h3>运营人员消耗</h3><canvas id="chartOperator"></canvas></div>
       <div class="chart-box"><h3>媒体消耗分布</h3><div id="mediaTableContainer"><table class="data-table" id="mediaTable"><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></table></div></div>
       <div class="chart-box full"><h3>客户消耗 Top10</h3><div id="clientTableContainer"><table class="data-table" id="clientTable"><tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr></table></div></div>
-      <div class="chart-box"><h3>每日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
-      <div class="chart-box"><h3>每日跌涨幅</h3><canvas id="chartChange"></canvas></div>
+      <div class="chart-box"><h3>近5日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
+      <div class="chart-box"><h3>近5日涨跌幅</h3><canvas id="chartChange"></canvas></div>
     </div>
     <div class="anomaly" id="anomalySection"><h3>🔔 媒体异动 · 每日上升/下降 Top5</h3><div id="anomalyTables"></div></div>
     <div class="anomaly" id="anomalyOperator"><h3>🔔 运营人员消耗异动 Top3 媒体</h3><div id="anomalyOperatorContent"></div></div>
@@ -129,6 +130,7 @@ function applyFilters() {
   renderClientTable(data);
   renderDailyChart(data);
   renderDailyChange(data);
+  renderTargets(data);
   renderMediaAnomalies(data);
   renderOperatorAnomalies(data);
 }
@@ -189,7 +191,8 @@ function renderClientTable(data) {
 }
 
 function renderDailyChart(data) {
-  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const allDates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const dates = allDates.slice(-5);
   const grouped = groupBy(data, '日期');
   const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
   destroyChart('chartDaily');
@@ -204,7 +207,8 @@ function renderDailyChart(data) {
 }
 
 function renderDailyChange(data) {
-  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const allDates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const dates = allDates.slice(-5);
   const grouped = groupBy(data, '日期');
   const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
   const changes = [];
@@ -308,6 +312,25 @@ function renderOperatorAnomalies(data) {
   document.getElementById('anomalyOperatorContent').innerHTML = html;
 }
 
+function renderTargets(data) {
+  const grouped = groupBy(data, '账户操作人');
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort();
+  const daysWithData = dates.length || 1;
+  let entries = [...grouped.entries()].map(([k,v]) => {
+    const total = sum(v.map(r => r.消耗));
+    const dailyAvg = total / daysWithData;
+    const target = Math.round(dailyAvg * 22 / 1000) * 1000;
+    const rate = target > 0 ? (total / target * 100) : 0;
+    return { name:k, total, target, rate };
+  });
+  entries.sort((a,b) => b.total - a.total);
+  const tbody = document.querySelector('#targetTable');
+  tbody.innerHTML = '<tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr>' + entries.map(e => {
+    const pct = e.rate.toFixed(1);
+    const barColor = e.rate >= 100 ? '#52c41a' : e.rate >= 50 ? '#faad14' : '#ff4d4f';
+    return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:2})+'</td><td>'+pct+'%</td><td><div style="background:#e8e8e8;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;"><div style="background:'+barColor+';height:8px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;"></div></div></td></tr>';
+  }).join('');
+}
 
 function initDashboard() { updateFilters(); applyFilters(); }
 
