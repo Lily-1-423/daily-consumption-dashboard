@@ -77,6 +77,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
       <div class="chart-box"><h3>近5日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
     </div>
     <div class="anomaly" id="anomalySection"><h3>&#x1F514; 媒体异动 · 近5日上升/下降 Top5</h3><div id="anomalyTables"></div></div>
+    <div class="anomaly" id="anomalyClient" style="display:none;"><h3>🔔 客户日耗异动 · 近5日上升/下降 Top5</h3><div id="anomalyClientTables"></div></div>
+    <div class="anomaly" id="anomalyOperator2" style="display:none;"><h3>🔔 运营人员日耗异动 · 近5日上升/下降 Top5</h3><div id="anomalyOperatorTables"></div></div>
   </div>
 </div>
 <script src="数据.js"></script>
@@ -146,6 +148,8 @@ function applyFilters() {
   renderTargets(data);
   renderMediaAnomalies(data);
   renderGroupLeaderStats(data);
+  renderClientAnomalies(data);
+  renderOperatorAnomalies2(data);
 }
 
 function adjustLayoutForFilter(data, opFilter) {
@@ -327,6 +331,128 @@ function renderMediaAnomalies(data) {
   document.getElementById('anomalyTables').innerHTML = html;
 }
 
+
+function renderClientAnomalies(data) {
+  var opFilter = document.getElementById('filterOperator').value;
+  var mdFilter = document.getElementById('filterMedia').value;
+  var section = document.getElementById('anomalyClient');
+  if (opFilter || mdFilter) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  var allDates = [];
+  var seen = new Set();
+  RAW_DATA.filter(function(r){ return r.盟效运营组 === currentGroup; }).forEach(function(r){
+    if (!seen.has(r.日期)) { seen.add(r.日期); allDates.push(r.日期); }
+  });
+  allDates.sort();
+  var dates = allDates.slice(-5);
+  if (dates.length < 2) {
+    document.getElementById('anomalyClientTables').innerHTML = '<p style="color:#999;">暂无足够数据</p>';
+    return;
+  }
+  var clientDaily = {};
+  var grouped = groupBy(data, '客户');
+  grouped.forEach(function(items, client){
+    var byDate = groupBy(items, '日期');
+    clientDaily[client] = {};
+    for (var i = 0; i < dates.length; i++) {
+      var d = dates[i];
+      var it = byDate.get(d);
+      clientDaily[client][d] = it ? sum(it.map(function(r){ return r.消耗; })) : 0;
+    }
+  });
+  var changes = [];
+  Object.keys(clientDaily).forEach(function(client){
+    var daily = clientDaily[client];
+    for (var i = 1; i < dates.length; i++) {
+      var prev = daily[dates[i-1]] || 0;
+      var curr = daily[dates[i]] || 0;
+      var pct = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+      changes.push({ name:client, date:dates[i], prev:prev, curr:curr, pct:pct });
+    }
+  });
+  if (changes.length === 0) {
+    document.getElementById('anomalyClientTables').innerHTML = '<p style="color:#999;">暂无足够数据</p>';
+    return;
+  }
+  changes.sort(function(a,b){ return b.pct - a.pct; });
+  var top5Rise = changes.slice(0, 5);
+  var top5Fall = changes.slice(-5).reverse();
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+  html += '<div><h4 style="margin-bottom:8px;color:#ff3b30;">&#x1F4C8; 上升 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>日环比</th></tr>';
+  for (var i = 0; i < top5Rise.length; i++) {
+    var c = top5Rise[i];
+    html += '<tr><td>' + c.name + '</td><td>' + c.date + '</td><td>' + Math.round(c.prev).toLocaleString('zh-CN') + '</td><td>' + Math.round(c.curr).toLocaleString('zh-CN') + '</td><td class="up">+' + Math.round(c.pct) + '%</td></tr>';
+  }
+  html += '</table></div>';
+  html += '<div><h4 style="margin-bottom:8px;color:#34c759;">&#x1F4C9; 下降 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>日环比</th></tr>';
+  for (var i = 0; i < top5Fall.length; i++) {
+    var c = top5Fall[i];
+    html += '<tr><td>' + c.name + '</td><td>' + c.date + '</td><td>' + Math.round(c.prev).toLocaleString('zh-CN') + '</td><td>' + Math.round(c.curr).toLocaleString('zh-CN') + '</td><td class="down">' + Math.round(c.pct) + '%</td></tr>';
+  }
+  html += '</table></div></div>';
+  document.getElementById('anomalyClientTables').innerHTML = html;
+}
+
+function renderOperatorAnomalies2(data) {
+  var opFilter = document.getElementById('filterOperator').value;
+  var mdFilter = document.getElementById('filterMedia').value;
+  var section = document.getElementById('anomalyOperator2');
+  if (opFilter || mdFilter) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  var allDates = [];
+  var seen = new Set();
+  RAW_DATA.filter(function(r){ return r.盟效运营组 === currentGroup; }).forEach(function(r){
+    if (!seen.has(r.日期)) { seen.add(r.日期); allDates.push(r.日期); }
+  });
+  allDates.sort();
+  var dates = allDates.slice(-5);
+  if (dates.length < 2) {
+    document.getElementById('anomalyOperatorTables').innerHTML = '<p style="color:#999;">暂无足够数据</p>';
+    return;
+  }
+  var opDaily = {};
+  var grouped = groupBy(data, '账户操作人');
+  grouped.forEach(function(items, op){
+    var byDate = groupBy(items, '日期');
+    opDaily[op] = {};
+    for (var i = 0; i < dates.length; i++) {
+      var d = dates[i];
+      var it = byDate.get(d);
+      opDaily[op][d] = it ? sum(it.map(function(r){ return r.消耗; })) : 0;
+    }
+  });
+  var changes = [];
+  Object.keys(opDaily).forEach(function(op){
+    var daily = opDaily[op];
+    for (var i = 1; i < dates.length; i++) {
+      var prev = daily[dates[i-1]] || 0;
+      var curr = daily[dates[i]] || 0;
+      var pct = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+      changes.push({ name:op, date:dates[i], prev:prev, curr:curr, pct:pct });
+    }
+  });
+  if (changes.length === 0) {
+    document.getElementById('anomalyOperatorTables').innerHTML = '<p style="color:#999;">暂无足够数据</p>';
+    return;
+  }
+  changes.sort(function(a,b){ return b.pct - a.pct; });
+  var top5Rise = changes.slice(0, 5);
+  var top5Fall = changes.slice(-5).reverse();
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+  html += '<div><h4 style="margin-bottom:8px;color:#ff3b30;">&#x1F4C8; 上升 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>日环比</th></tr>';
+  for (var i = 0; i < top5Rise.length; i++) {
+    var c = top5Rise[i];
+    html += '<tr><td>' + c.name + '</td><td>' + c.date + '</td><td>' + Math.round(c.prev).toLocaleString('zh-CN') + '</td><td>' + Math.round(c.curr).toLocaleString('zh-CN') + '</td><td class="up">+' + Math.round(c.pct) + '%</td></tr>';
+  }
+  html += '</table></div>';
+  html += '<div><h4 style="margin-bottom:8px;color:#34c759;">&#x1F4C9; 下降 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>日环比</th></tr>';
+  for (var i = 0; i < top5Fall.length; i++) {
+    var c = top5Fall[i];
+    html += '<tr><td>' + c.name + '</td><td>' + c.date + '</td><td>' + Math.round(c.prev).toLocaleString('zh-CN') + '</td><td>' + Math.round(c.curr).toLocaleString('zh-CN') + '</td><td class="down">' + Math.round(c.pct) + '%</td></tr>';
+  }
+  html += '</table></div></div>';
+  document.getElementById('anomalyOperatorTables').innerHTML = html;
+}
 function renderTargets(data) {
   var defaultTargets = {
     "余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,
@@ -403,6 +529,8 @@ function initDashboard() {
 
 
 function renderGroupLeaderStats(data) {
+  renderClientAnomalies(data);
+  renderOperatorAnomalies2(data);
   var section = document.getElementById('groupLeaderSection');
   var opFilter = document.getElementById('filterOperator').value;
   var mdFilter = document.getElementById('filterMedia').value;
