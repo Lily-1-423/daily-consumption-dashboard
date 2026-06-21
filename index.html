@@ -277,7 +277,7 @@ function renderOperatorChart(data) {
   const colors = ['#1677ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96'];
   destroyChart('chartOperator');
   charts.chartOperator = new Chart(document.getElementById('chartOperator'), {
-    type:'bar', data:{ labels, datasets:[{ label:'消耗', data:values, backgroundColor:colors.slice(0,values.length), borderRadius:4 }] },
+    type:'line', data:{ labels, datasets:[{ label:'消耗', data:values, borderColor:'#1677ff', backgroundColor:'rgba(22,119,255,0.1)', fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#1677ff' }] },
     options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
   });
