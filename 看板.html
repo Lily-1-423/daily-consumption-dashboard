@@ -1,0 +1,518 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>运营消耗看板</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:#f0f2f5; --card:#fff; --primary:#4f6ef7; --primary-light:#eef1ff;
+  --success:#34c759; --warning:#ff9500; --danger:#ff3b30;
+  --text:#1d1d1f; --text2:#6e6e73; --text3:#aeaeb2;
+  --border:#e5e5ea; --radius:12px;
+  --shadow:0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+  --shadow-lg:0 4px 24px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04);
+  --sidebar-bg:#1a1a1e; --sidebar-hover:#2c2c2e;
+}
+body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+.app { display:flex; min-height:100vh; }
+.sidebar { width:240px; background:var(--sidebar-bg); color:#fff; padding:24px 0; flex-shrink:0; display:flex; flex-direction:column; }
+.sidebar h2 { padding:0 20px 24px; font-size:15px; font-weight:700; letter-spacing:-0.2px; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+.sidebar .nav-section { padding:6px 20px 4px; font-size:10px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1px; }
+.sidebar .nav-item { padding:8px 16px; cursor:pointer; font-size:13px; font-weight:500; color:rgba(255,255,255,0.65); display:flex; align-items:center; gap:10px; transition:all .2s cubic-bezier(0.4,0,0.2,1); position:relative; margin:1px 10px; border-radius:8px; }
+.sidebar .nav-item:hover { background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.9); }
+.sidebar .nav-item.active { background:var(--primary); color:#fff; font-weight:600; box-shadow:0 2px 8px rgba(79,110,247,0.3); }
+.sidebar .nav-item .nav-dot { width:5px; height:5px; border-radius:50%; background:currentColor; opacity:0.4; flex-shrink:0; }
+.sidebar .nav-item.active .nav-dot { opacity:1; }
+.nav-item.expandable::after { content:"▸"; margin-left:auto; font-size:10px; opacity:0.5; transition:transform .25s cubic-bezier(0.4,0,0.2,1); }
+.nav-item.expandable.expanded::after { transform:rotate(90deg); opacity:0.8; }
+.sub-nav-item { padding:6px 16px 6px 34px; cursor:pointer; font-size:12px; font-weight:500; color:rgba(255,255,255,0.45); transition:all .2s; margin:0 10px; border-radius:6px; display:flex; align-items:center; gap:8px; }
+.sub-nav-item::before { content:""; width:3px; height:3px; border-radius:50%; background:rgba(255,255,255,0.3); flex-shrink:0; }
+.sub-nav-item:hover { background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7); }
+.sub-nav-item.active { background:rgba(79,110,247,0.15); color:var(--primary); font-weight:600; }
+.sub-nav-item.active::before { background:var(--primary); }
+.main { flex:1; padding:32px 40px; overflow-y:auto; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
+.header h1 { font-size:20px; font-weight:700; letter-spacing:-0.3px; color:var(--text); }
+.header-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.header-controls select { padding:6px 12px 6px 10px; border:1px solid var(--border); border-radius:8px; font-size:12px; font-weight:500; background:var(--card); cursor:pointer; min-width:110px; color:var(--text); appearance:none; background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236e6e73' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:28px; }
+.header-controls select:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(79,110,247,0.12); }
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+.stat-card { background:var(--card); border-radius:var(--radius); padding:20px 24px; box-shadow:var(--shadow); border:1px solid var(--border); transition:box-shadow .2s, transform .2s; }
+.stat-card:hover { box-shadow:var(--shadow-lg); }
+.stat-card .label { font-size:12px; font-weight:500; color:var(--text2); margin-bottom:4px; }
+.stat-card .value { font-size:26px; font-weight:700; letter-spacing:-0.5px; color:var(--text); }
+.stat-card .sub { font-size:11px; color:var(--text3); margin-top:2px; }
+.target-section { margin-bottom:24px; background:var(--card); border-radius:var(--radius); padding:20px 24px; box-shadow:var(--shadow); border:1px solid var(--border); }
+.target-section h3 { font-size:14px; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+.chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
+.chart-box { background:var(--card); border-radius:var(--radius); padding:24px; border:1px solid var(--border); box-shadow:var(--shadow); transition:box-shadow .2s; }
+.chart-box:hover { box-shadow:var(--shadow-lg); }
+.chart-box.full { grid-column:1/-1; }
+.chart-box h3 { font-size:14px; font-weight:600; margin-bottom:16px; }
+.chart-box canvas { max-height:300px; }
+.data-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; }
+.data-table th { background:#f8f9fb; text-align:left; padding:10px 14px; font-weight:600; font-size:11px; color:var(--text2); border-bottom:1.5px solid var(--border); white-space:nowrap; letter-spacing:0.3px; text-transform:uppercase; }
+.data-table th:first-child { border-radius:8px 0 0 0; }
+.data-table th:last-child { border-radius:0 8px 0 0; }
+.data-table td { padding:9px 14px; border-bottom:1px solid #f0f0f0; font-size:12px; }
+.data-table tr:last-child td { border-bottom:none; }
+.data-table tr:hover td { background:#f8f9fb; }
+.data-table .up { color:var(--danger); font-weight:600; }
+.data-table .down { color:var(--success); font-weight:600; }
+.anomaly { padding:24px; background:var(--card); border-radius:var(--radius); margin-bottom:24px; border:1px solid var(--border); box-shadow:var(--shadow); }
+.anomaly h3 { font-size:14px; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+.anomaly h4 { font-size:13px; font-weight:600; margin-bottom:10px; }
+@media (max-width:900px) {
+  .app { flex-direction:column; }
+  .sidebar { width:100%; padding:16px 0; display:flex; flex-wrap:wrap; }
+  .sidebar h2 { width:100%; padding:0 16px 16px; }
+  .sidebar .nav-item { padding:6px 12px; }
+  .main { padding:20px 16px; }
+  .stats { grid-template-columns:repeat(2,1fr); }
+  .chart-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar" id="sidebar">
+    <h2>📊 运营看板</h2>
+    <div id="sidebarItems"></div>
+  </div>
+  <div class="main" id="main">
+    <div class="header">
+      <h1 id="groupTitle">王孟组 · 运营看板</h1>
+      <div class="header-controls">
+        <select id="filterOperator" onchange="applyFilters()"><option value="">全部运营人员</option></select>
+        <select id="filterMedia" onchange="applyFilters()"><option value="">全部媒体</option></select>
+      </div>
+    </div>
+    <div class="stats" id="statsRow"></div>
+    <div id="targetSection" class="target-section"><h3>运营目标及达成情况</h3><table class="data-table" id="targetTable"><tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr></table></div>
+    <div class="chart-grid">
+      <div class="chart-box operator-chart-box"><h3>运营人员消耗</h3><canvas id="chartOperator"></canvas></div>
+      <div class="chart-box media-chart-box"><h3>媒体消耗分布</h3><table class="data-table" id="mediaTable"><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></table></div>
+      <div class="chart-box client-chart-box"><h3>客户消耗 Top10</h3><table class="data-table" id="clientTable"><tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr></table></div>
+      <div class="chart-box"><h3>近5日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
+    </div>
+    <div class="anomaly" id="anomalySection"><h3>🔔 媒体异动 · 近2日上升/下降 Top5</h3><div id="anomalyTables"></div></div>
+    <div class="anomaly">
+      <h3>🔔 运营人员日耗异动 · 近2日上升/下降 Top5</h3>
+      <div id="anomalyOperatorContent"></div>
+    </div>
+    <div class="anomaly">
+      <h3>🔔 客户日耗异动 · 近2日上升/下降 Top5</h3>
+      <div id="anomalyClientContent"></div>
+    </div>
+  </div>
+</div>
+<script src="数据.js"></script>
+<script>
+function sum(arr) { return arr.reduce((a,b)=>a+b, 0); }
+function groupBy(arr, key) {
+  const m = new Map();
+  arr.forEach(o => { const k = o[key]; if (!m.has(k)) m.set(k, []); m.get(k).push(o); });
+  return m;
+}
+let currentSubGroup = '';
+
+const SUB_GROUPS = {
+  '王孟': [
+    { id: '刘静组', label: '刘静组', operators: ['刘秋芬','孟杨','杨玉洁','陈佳','薛岭','项任娸','鲁伊雯'] },
+    { id: '上海综合行业组', label: '上海综合行业组', operators: ['董崇阳','章晓东','李露露','陈瑶瑶'] },
+    { id: '上海支付宝组', label: '上海支付宝组', operators: ['刘云杰'] }
+  ]
+};
+
+let charts = {};
+let currentGroup = '王孟';
+
+function getGroupData(group) {
+  let data = RAW_DATA.filter(r => (r.盟效运营组 === group || (group === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
+  const op = document.getElementById('filterOperator').value;
+  const md = document.getElementById('filterMedia').value;
+  if (op) data = data.filter(r => r.账户操作人 === op);
+  if (md) data = data.filter(r => r.媒体 === md);
+  if (currentSubGroup && group === '王孟') {
+    const sg = SUB_GROUPS[group].find(s => s.id === currentSubGroup);
+    if (sg) data = data.filter(r => sg.operators.includes(r.账户操作人));
+  }
+  return data;
+}
+
+function switchGroup(group) {
+  currentGroup = group;
+  currentSubGroup = '';
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.group === group));
+  document.querySelectorAll('.sub-nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('groupTitle').textContent = group + '组 · 运营看板';
+  updateFilters();
+  applyFilters();
+}
+
+function updateFilters() {
+  const data = RAW_DATA.filter(r => (r.盟效运营组 === currentGroup || (currentGroup === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
+  let ops = [...new Set(data.map(r => r.账户操作人))].sort();
+  const meds = [...new Set(data.map(r => r.媒体))].sort();
+  if (currentSubGroup && currentGroup === '王孟') {
+    const sg = SUB_GROUPS[currentGroup].find(s => s.id === currentSubGroup);
+    if (sg) ops = ops.filter(o => sg.operators.includes(o));
+  }
+  const selOp = document.getElementById('filterOperator');
+  const selMd = document.getElementById('filterMedia');
+  const curOp = selOp.value;
+  const curMd = selMd.value;
+  selOp.innerHTML = '<option value="">全部运营人员</option>' + ops.map(o => '<option value="'+o+'">'+o+'</option>').join('');
+  selMd.innerHTML = '<option value="">全部媒体</option>' + meds.map(m => '<option value="'+m+'">'+m+'</option>').join('');
+  selOp.value = curOp;
+  selMd.value = curMd;
+}
+
+function applyFilters() {
+  const data = getGroupData(currentGroup);
+  const opFilter = document.getElementById('filterOperator').value;
+  adjustLayoutForFilter(data, opFilter);
+  renderStats(data);
+  renderOperatorChart(data);
+  renderMediaTable(data);
+  renderClientTable(data);
+  renderDailyTrend(data);
+  renderTargets(data);
+  renderMediaAnomalies(data);
+  renderOperatorAnomalies(data);
+  renderClientAnomalies(data);
+}
+
+function adjustLayoutForFilter(data, opFilter) {
+  const opChart = document.querySelector('.operator-chart-box');
+  const firstStat = document.querySelector('.stat-card:first-child');
+  if (!opChart || !firstStat) return;
+  if (opFilter) {
+    opChart.style.display = 'none';
+    firstStat.querySelector('.label').textContent = opFilter;
+    firstStat.querySelector('.sub').textContent = '运营人员';
+  } else {
+    opChart.style.display = '';
+    firstStat.querySelector('.label').textContent = '总消耗';
+    firstStat.querySelector('.sub').textContent = '总计';
+  }
+}
+
+function renderStats(data) {
+  const totalConsumption = sum(data.map(r => r.消耗));
+  const operators = new Set(data.map(r => r.账户操作人)).size;
+  const media = new Set(data.map(r => r.媒体)).size;
+  const clients = new Set(data.map(r => r.客户)).size;
+  const leaderTargets = {'钱世豪':7,'王孟':6,'张远祥':5};
+  const opFilter = document.getElementById('filterOperator').value;
+  const mdFilter = document.getElementById('filterMedia').value;
+  let leaderCards = '';
+  if (!opFilter && !mdFilter && leaderTargets[currentGroup] && currentSubGroup !== '上海综合行业组' && currentSubGroup !== '上海支付宝组') {
+    const allDates = [...new Set(RAW_DATA.map(r => r.日期))].sort();
+    const days = allDates.length;
+    const fd = allDates[0];
+    const ld = allDates[days - 1];
+    const fMonth = new Date(fd).getMonth() + 1;
+    const fDay = new Date(fd).getDate();
+    const lDay = new Date(ld).getDate();
+    const totalMonthDays = new Date(new Date(fd).getFullYear(), new Date(fd).getMonth() + 1, 0).getDate();
+    const timePct = Math.round(days / totalMonthDays * 100);
+    let groupData = RAW_DATA.filter(r => (r.盟效运营组 === currentGroup || (currentGroup === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
+    const groupTotal = sum(groupData.map(r => r.消耗));
+    const personCount = new Set(groupData.map(r => r.账户操作人)).size;
+    const actual = personCount > 0 && days > 0 ? (groupTotal / personCount / days / 10000) : 0;
+    const subGroupTargets = {'刘静组':5};
+  const target = currentSubGroup && subGroupTargets[currentSubGroup] ? subGroupTargets[currentSubGroup] : leaderTargets[currentGroup];
+  const groupLabel = currentSubGroup || (currentGroup + '组');
+    const rate = target > 0 ? (actual / target * 100) : 0;
+    leaderCards = '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">目标消耗</div><div style="font-size:22px;font-weight:700;">' + target + '万</div><div style="font-size:11px;color:var(--text2);">万/人/天</div></div>'
+      + '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">实际消耗</div><div style="font-size:22px;font-weight:700;">' + actual.toFixed(2) + '万</div><div style="font-size:11px;color:var(--text2);">万/人/天</div></div>'
+      + '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">达成率</div><div style="font-size:22px;font-weight:700;color:' + (rate >= 100 ? '#52c41a' : rate >= 50 ? '#faad14' : '#ff4d4f') + ';">' + Math.round(rate) + '%</div><div style="font-size:11px;color:var(--text2);">' + currentGroup + '组</div></div>'
+      + '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">时间进度</div><div style="font-size:22px;font-weight:700;color:#1677ff;">' + timePct + '%</div><div style="font-size:11px;color:var(--text2);">' + fMonth + '月' + fDay + '日-' + lDay + '日</div></div>';
+  }
+  const tp = {};
+  if (currentSubGroup === '上海综合行业组' || currentSubGroup === '上海支付宝组') {
+    const allDates = [...new Set(RAW_DATA.map(r => r.日期))].sort();
+    const d = allDates.length, fd = allDates[0], ld = allDates[d - 1];
+    tp.fMonth = new Date(fd).getMonth() + 1;
+    tp.fDay = new Date(fd).getDate();
+    tp.lDay = new Date(ld).getDate();
+    const tmd = new Date(new Date(fd).getFullYear(), new Date(fd).getMonth() + 1, 0).getDate();
+    tp.timePct = Math.round(d / tmd * 100);
+  }
+  const items = [
+    { label:'总消耗', value:totalConsumption.toLocaleString('zh-CN',{minimumFractionDigits:0}), sub:'总计' },
+    { label:'运营人员', value:operators, sub:'人' },
+    { label:'媒体数', value:media, sub:'个' },
+    { label:'客户数', value:clients, sub:'个' },
+    ...(currentSubGroup === '上海综合行业组' || currentSubGroup === '上海支付宝组' ? [{ label:'时间进度', value:'<span style="color:#1677ff">' + tp.timePct + '%</span>', sub: tp.fMonth + '月' + tp.fDay + '日-' + tp.lDay + '日' }] : [])
+  ];
+  let mainHtml = '<div style="grid-column:1/-1;display:flex;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);">';
+  items.forEach((s, i) => {
+    mainHtml += '<div style="flex:1;text-align:center;padding:20px 12px;' + (i < items.length-1 ? 'border-right:1px solid var(--border);' : '') + '"><div style="font-size:12px;color:var(--text2);margin-bottom:4px;">' + s.label + '</div><div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;">' + s.value + '</div><div style="font-size:11px;color:var(--text2);margin-top:2px;">' + s.sub + '</div></div>';
+  });
+  mainHtml += '</div>';
+const leaderHtml = leaderCards ? '<div style="grid-column:1/-1;display:flex;gap:14px;margin-top:0;">' + leaderCards + '</div>' : '';
+  document.getElementById('statsRow').innerHTML = leaderHtml + mainHtml;
+  if (opFilter) {
+    const firstItem = document.querySelector('#statsRow > div:first-child > div:first-child');
+    if (firstItem) {
+      firstItem.children[0].textContent = opFilter;
+      firstItem.children[2].textContent = '运营人员';
+    }
+  }
+}
+
+
+
+
+
+function renderOperatorChart(data) {
+  const grouped = groupBy(data, '账户操作人');
+  const labels = [...grouped.keys()].sort();
+  const values = labels.map(k => sum(grouped.get(k).map(r => r.消耗)));
+  const colors = ['#1677ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96'];
+  destroyChart('chartOperator');
+  charts.chartOperator = new Chart(document.getElementById('chartOperator'), {
+    type:'bar', data:{ labels, datasets:[{ label:'消耗', data:values, backgroundColor:colors.slice(0,values.length), borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
+     scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
+  });
+}
+
+function renderMediaTable(data) {
+  const grouped = groupBy(data, '媒体');
+  const total = sum(data.map(r => r.消耗));
+  let entries = [...grouped.entries()].map(([k,v]) => ({ name:k, value:sum(v.map(r=>r.消耗)) }));
+  entries.sort((a,b) => b.value - a.value);
+  const maxVal = entries.length > 0 ? entries[0].value : 0;
+  const tbody = document.querySelector('#mediaTable');
+  tbody.innerHTML = '<tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr>' + entries.map((e,i) => {
+    const pct = total > 0 ? Math.round(e.value / total * 100) : 0;
+    const barW = maxVal > 0 ? (e.value / maxVal * 100) : 0;
+    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#1677ff;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
+  }).join('');
+}
+
+function renderClientTable(data) {
+  const grouped = groupBy(data, '客户');
+  const total = sum(data.map(r => r.消耗));
+  let entries = [...grouped.entries()].map(([k,v]) => ({ name:k, value:sum(v.map(r=>r.消耗)) }));
+  entries.sort((a,b) => b.value - a.value);
+  entries = entries.slice(0, 10);
+  const maxVal = entries.length > 0 ? entries[0].value : 0;
+  const tbody = document.querySelector('#clientTable');
+  tbody.innerHTML = '<tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr>' + entries.map((e,i) => {
+    const pct = total > 0 ? Math.round(e.value / total * 100) : 0;
+    const barW = maxVal > 0 ? (e.value / maxVal * 100) : 0;
+    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#722ed1;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
+  }).join('');
+}
+
+function renderDailyTrend(data) {
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  const grouped = groupBy(data, '日期');
+  const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
+  destroyChart('chartDaily');
+  charts.chartDaily = new Chart(document.getElementById('chartDaily'), {
+    type:'line', data:{ labels:dates, datasets:[{
+      label:'消耗', data:values, borderColor:'#1677ff', backgroundColor:'rgba(22,119,255,0.1)',
+      fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#1677ff'
+    }]},
+    options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
+      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
+  });
+}
+
+
+function renderMediaAnomalies(data) {
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  const mediaDaily = {};
+  const grouped = groupBy(data, '媒体');
+  grouped.forEach((items, media) => {
+    const byDate = groupBy(items, '日期');
+    mediaDaily[media] = {};
+    dates.forEach(d => { const items2 = byDate.get(d); mediaDaily[media][d] = items2 ? sum(items2.map(r => r.消耗)) : 0; });
+  });
+  let changes = [];
+  Object.entries(mediaDaily).forEach(([media, daily]) => {
+    for (let i = 1; i < dates.length; i++) {
+      const prev = daily[dates[i-1]] || 0;
+      const curr = daily[dates[i]] || 0;
+      const pct = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+      changes.push({ media, date:dates[i], prev, curr, pct });
+    }
+  });
+  if (changes.length === 0) {
+    document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">暂无足够数据</p>';
+    return;
+  }
+  changes.sort((a, b) => b.pct - a.pct);
+  const top5Rise = changes.slice(0, 5);
+  const top5Fall = changes.slice(-5).reverse();
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>涨幅</th></tr>';
+  top5Rise.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '</table></div>';
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>降幅</th></tr>';
+  top5Fall.forEach(c => { if (c.pct <= 0) html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '</table></div></div>';
+  document.getElementById('anomalyTables').innerHTML = html;
+}
+
+
+
+function renderOperatorAnomalies(data) {
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  const opDaily = {};
+  const grouped = groupBy(data, '账户操作人');
+  grouped.forEach((items, op) => {
+    const byDate = groupBy(items, '日期');
+    opDaily[op] = {};
+    dates.forEach(d => { opDaily[op][d] = byDate.get(d) ? sum(byDate.get(d).map(r=>r.消耗)) : 0; });
+  });
+  let changes = [];
+  Object.entries(opDaily).forEach(([op, daily]) => {
+    for (let i = 1; i < dates.length; i++) {
+      const prev = daily[dates[i-1]] || 0;
+      const curr = daily[dates[i]] || 0;
+      const pct = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+      changes.push({ op, date:dates[i], prev, curr, pct });
+    }
+  });
+  if (changes.length === 0) {
+    document.getElementById('anomalyOperatorContent').innerHTML = '<p style=color:#999;>暂无足够数据</p>';
+    return;
+  }
+  changes.sort((a, b) => b.pct - a.pct);
+  const top5Rise = changes.slice(0, 5);
+  const top5Fall = changes.slice(-5).reverse();
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>涨幅</th></tr>';
+  top5Rise.forEach(c => { html += '<tr><td>'+c.op+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '</table></div>';
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>降幅</th></tr>';
+  top5Fall.forEach(c => { if (c.pct <= 0) html += '<tr><td>'+c.op+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '</table></div></div>';
+  document.getElementById('anomalyOperatorContent').innerHTML = html;
+}
+
+function renderClientAnomalies(data) {
+  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  const clientDaily = {};
+  const grouped = groupBy(data, '客户');
+  grouped.forEach((items, client) => {
+    const byDate = groupBy(items, '日期');
+    clientDaily[client] = {};
+    dates.forEach(d => { clientDaily[client][d] = byDate.get(d) ? sum(byDate.get(d).map(r=>r.消耗)) : 0; });
+  });
+  let changes = [];
+  Object.entries(clientDaily).forEach(([client, daily]) => {
+    for (let i = 1; i < dates.length; i++) {
+      const prev = daily[dates[i-1]] || 0;
+      const curr = daily[dates[i]] || 0;
+      const pct = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+      changes.push({ client, date:dates[i], prev, curr, pct });
+    }
+  });
+  if (changes.length === 0) {
+    document.getElementById('anomalyClientContent').innerHTML = '<p style=color:#999;>暂无足够数据</p>';
+    return;
+  }
+  changes.sort((a, b) => b.pct - a.pct);
+  const top5Rise = changes.slice(0, 5);
+  const top5Fall = changes.slice(-5).reverse();
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>涨幅</th></tr>';
+  top5Rise.forEach(c => { html += '<tr><td>'+c.client+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '</table></div>';
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>降幅</th></tr>';
+  top5Fall.forEach(c => { if (c.pct <= 0) html += '<tr><td>'+c.client+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '</table></div></div>';
+  document.getElementById('anomalyClientContent').innerHTML = html;
+}
+
+
+function renderTargets(data) {
+  const defaultTargets = {"余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,"任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,"陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任嫫":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000};
+  const sectionTitle = document.querySelector('#targetSection h3');
+  let groupOps;
+  if (currentSubGroup && currentGroup === '王孟') {
+    const sg = SUB_GROUPS[currentGroup].find(s => s.id === currentSubGroup);
+    groupOps = sg ? sg.operators : [];
+    sectionTitle.textContent = currentSubGroup + ' · 目标及达成情况';
+  } else {
+    groupOps = [...new Set(RAW_DATA.filter(r => (r.盟效运营组 === currentGroup || (currentGroup === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/').map(r => r.账户操作人))];
+    sectionTitle.textContent = '运营目标及达成情况';
+  }
+  let entries = groupOps.map(k => {
+    const opData = data.filter(r => r.账户操作人 === k);
+    const total = opData.length > 0 ? sum(opData.map(r => r.消耗)) : 0;
+    const target = defaultTargets[k] || 0;
+    const rate = target > 0 ? (total / target * 100) : 0;
+    return { name:k, total, target, rate };
+  });
+  const opFilter = document.getElementById('filterOperator').value;
+  if (opFilter) {
+    entries = entries.filter(e => e.name === opFilter);
+    sectionTitle.textContent = opFilter + ' · 目标及达成';
+  }
+  entries.sort((a,b) => b.rate - a.rate);
+  const tbody = document.querySelector('#targetTable');
+  tbody.innerHTML = '<tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr>' + entries.map(e => {
+    const pct = Math.round(e.rate);
+    const barColor = e.rate >= 100 ? '#52c41a' : e.rate >= 50 ? '#faad14' : '#ff4d4f';
+    return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td><td>'+pct+'%</td><td><div style="background:#e8e8e8;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;"><div style="background:'+barColor+';height:8px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;"></div></div></td></tr>';
+  }).join('');
+}
+
+function buildSidebar() {
+  const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort().filter(g => g !== '刘静');
+  const container = document.getElementById('sidebarItems');
+  container.innerHTML = '<div class="nav-section">运营组</div>' + groups.map(g => {
+    const active = g === currentGroup && !currentSubGroup ? ' active' : '';
+    if (g === '王孟') {
+      const expanded = currentGroup === '王孟' ? ' expanded' : '';
+      const subs = SUB_GROUPS[g] || [];
+      const subItems = subs.map(sg => {
+        const subActive = currentSubGroup === sg.id ? ' active' : '';
+        return '<div class="sub-nav-item' + subActive + '" data-sub="' + sg.id + '" onclick="switchSubGroup(\'' + sg.id + '\')">' + sg.label + '</div>';
+      }).join('');
+      return '<div class="nav-item expandable' + active + expanded + '" onclick="switchGroup(\'' + g + '\')"><span class="nav-dot"></span>' + g + '组</div>' + (expanded ? subItems : '');
+    }
+    return '<div class="nav-item' + active + '" data-group="' + g + '" onclick="switchGroup(\'' + g + '\')"><span class="nav-dot"></span>' + g + '组</div>';
+  }).join('');
+}
+
+function initDashboard() {
+  buildSidebar();
+  if (!currentGroup) {
+    const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort().filter(g => g !== '刘静');
+    currentGroup = groups[0] || '王孟';
+  }
+  document.getElementById('groupTitle').textContent = currentGroup + '组 · 运营看板';
+  updateFilters();
+  applyFilters();
+}
+
+function switchSubGroup(subId) {
+  currentGroup = '王孟';
+  currentSubGroup = subId;
+  buildSidebar();
+  const sg = SUB_GROUPS['王孟'].find(s => s.id === subId);
+  document.getElementById('groupTitle').textContent = '王孟组 · ' + sg.label;
+  updateFilters();
+  applyFilters();
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+initDashboard();
+</script>
+</body>
+</html>
