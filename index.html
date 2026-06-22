@@ -118,6 +118,7 @@ function groupBy(arr, key) {
   return m;
 }
 let currentSubGroup = '';
+let wangMengExpanded = true;
 
 const SUB_GROUPS = {
   '王孟': [
@@ -144,6 +145,14 @@ function getGroupData(group) {
 }
 
 function switchGroup(group) {
+  if (group === '王孟') {
+    if (currentGroup === '王孟' && !currentSubGroup) {
+      wangMengExpanded = !wangMengExpanded;
+      buildSidebar();
+      return;
+    }
+    wangMengExpanded = true;
+  }
   currentGroup = group;
   currentSubGroup = '';
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.group === group));
@@ -223,7 +232,7 @@ function renderStats(data) {
     let groupData = RAW_DATA.filter(r => (r.盟效运营组 === currentGroup || (currentGroup === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
     const groupTotal = sum(groupData.map(r => r.消耗));
     const personCount = new Set(groupData.map(r => r.账户操作人)).size;
-    const actual = personCount > 0 && days > 0 ? (groupTotal / personCount / days / 10000) : 0;
+    const actual = personCount > 0 && days > 0 ? (groupTotal / personCount / totalMonthDays / 10000) : 0;
     const subGroupTargets = {'刘静组':5};
   const target = currentSubGroup && subGroupTargets[currentSubGroup] ? subGroupTargets[currentSubGroup] : leaderTargets[currentGroup];
   const groupLabel = currentSubGroup || (currentGroup + '组');
@@ -470,12 +479,12 @@ function renderTargets(data) {
 }
 
 function buildSidebar() {
-  const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort().filter(g => g !== '刘静');
+  const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort().filter(g => g !== '刘静' && g !== '盟效运营');
   const container = document.getElementById('sidebarItems');
   container.innerHTML = '<div class="nav-section">运营组</div>' + groups.map(g => {
     const active = g === currentGroup && !currentSubGroup ? ' active' : '';
     if (g === '王孟') {
-      const expanded = currentGroup === '王孟' ? ' expanded' : '';
+      const expanded = wangMengExpanded ? ' expanded' : '';
       const subs = SUB_GROUPS[g] || [];
       const subItems = subs.map(sg => {
         const subActive = currentSubGroup === sg.id ? ' active' : '';
@@ -490,7 +499,7 @@ function buildSidebar() {
 function initDashboard() {
   buildSidebar();
   if (!currentGroup) {
-    const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort().filter(g => g !== '刘静');
+    const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort().filter(g => g !== '刘静' && g !== '盟效运营');
     currentGroup = groups[0] || '王孟';
   }
   document.getElementById('groupTitle').textContent = currentGroup + '组 · 运营看板';
@@ -501,6 +510,7 @@ function initDashboard() {
 function switchSubGroup(subId) {
   currentGroup = '王孟';
   currentSubGroup = subId;
+  wangMengExpanded = true;
   buildSidebar();
   const sg = SUB_GROUPS['王孟'].find(s => s.id === subId);
   document.getElementById('groupTitle').textContent = '王孟组 · ' + sg.label;
