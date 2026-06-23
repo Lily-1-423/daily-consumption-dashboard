@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>运营消耗看板</title>
-<script src="chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>.data-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
 .data-table th { background:#f5f5f7; padding:8px 10px; text-align:left; font-weight:600; color:#1d1d1f; border-bottom:1px solid #e5e5ea; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; }
 .data-table td { padding:7px 10px; border-bottom:1px solid #f0f0f0; color:#1d1d1f; }
@@ -93,9 +93,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Rob
     </div>
     <div class="stats" id="statsRow"></div>
     <div id="targetSection" class="target-section"><h3>运营目标及达成情况</h3><table class="data-table" id="targetTable"><tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr></table></div>
-    <div class="chart-grid">
-      <div class="chart-box operator-chart-box"><h3>运营人员消耗</h3><canvas id="chartOperator"></canvas></div>
-      <div class="chart-box media-chart-box"><h3>媒体消耗分布</h3><table class="data-table" id="mediaTable"><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></table></div>
+   <div class="chart-grid">
+     <div class="chart-box media-chart-box"><h3>媒体消耗分布</h3><table class="data-table" id="mediaTable"><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></table></div>
       <div class="chart-box client-chart-box"><h3>客户消耗 Top10</h3><table class="data-table" id="clientTable"><tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr></table></div>
       <div class="chart-box"><h3>近5日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
     </div>
@@ -197,21 +196,15 @@ function updateFilters() {
 
 function applyFilters() {
   const data = getGroupData(currentGroup);
-  const opFilter = document.getElementById('filterOperator').value;
-  adjustLayoutForFilter(data, opFilter);
-  renderStats(data);
-  // renderOperatorChart removed
-  renderMediaTable(data);
+ const opFilter = document.getElementById('filterOperator').value;
+ renderStats(data);
+ renderMediaTable(data);
   renderClientTable(data);
   renderDailyTrend(data);
   renderTargets(data);
   renderMediaAnomalies(data);
   renderOperatorAnomalies(data);
   renderClientAnomalies(data);
-  // Hide operator chart for 汇总
-  const oc = document.querySelector('.operator-chart-box');
-  if (oc) oc.style.display = 'none';
-}
 
 function adjustLayoutForFilter(data, opFilter) {
   const opChart = document.querySelector('.operator-chart-box');
@@ -241,7 +234,7 @@ function renderStats(data) {
   }
   if (currentGroup === '钱世豪') { opsSet.delete('钱世豪'); }
   if (currentGroup === '汇总') { opsSet.delete('钱世豪'); opsSet.delete('刘艳'); }
-  const operators = opsSet.size;
+  const operators = currentGroup === '钱世豪' ? 9 : opsSet.size;
   const media = new Set(data.map(r => r.媒体)).size;
   const clients = new Set(data.map(r => r.客户)).size;
   const leaderTargets = {'钱世豪':7,'王孟':6,'张远祥':5};
@@ -272,7 +265,9 @@ function renderStats(data) {
     }
     if (currentGroup === '钱世豪') { personSet2.delete('钱世豪'); personSet2.delete('刘艳'); personSet2.delete('彭静'); }
     const personCount = personSet2.size;
-    const actual = personCount > 0 && days > 0 ? (groupTotal / personCount / days / 10000) : 0;
+  const personCountTargets = {'钱世豪':9};
+  const calcPersonCount = currentGroup && personCountTargets[currentGroup] ? personCountTargets[currentGroup] : personCount;
+   const actual = calcPersonCount > 0 && days > 0 ? (groupTotal / calcPersonCount / days / 10000) : 0;
     const subGroupTargets = {'刘静组':5};
   const target = currentSubGroup && subGroupTargets[currentSubGroup] ? subGroupTargets[currentSubGroup] : leaderTargets[currentGroup];
   const groupLabel = currentSubGroup || (currentGroup + '组');
@@ -319,16 +314,30 @@ const leaderHtml = leaderCards ? '<div style="grid-column:1/-1;display:flex;gap:
 
 
 
-function renderOperatorChart(data) {
-  const grouped = groupBy(data, '账户操作人');
   const labels = [...grouped.keys()].sort();
   const values = labels.map(k => sum(grouped.get(k).map(r => r.消耗)));
   const colors = ['#1677ff','#52c41a','#faad14','#ff4d4f','#722ed1','#13c2c2','#eb2f96'];
   destroyChart('chartOperator');
   charts.chartOperator = new Chart(document.getElementById('chartOperator'), {
     type:'line', data:{ labels, datasets:[{ label:'消耗', data:values, borderColor:'#1677ff', backgroundColor:'rgba(22,119,255,0.1)', fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#1677ff' }] },
-    options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
-     scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
+   options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
+      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } },
+    plugins: [{
+      afterDraw: function(chart) {
+        const ctx = chart.ctx;
+        chart.data.datasets.forEach(function(dataset, i) {
+          const meta = chart.getDatasetMeta(i);
+          meta.data.forEach(function(bar, index) {
+            const data = dataset.data[index];
+            ctx.fillStyle = '#1d1d1f';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(data.toLocaleString(), bar.x, bar.y - 6);
+          });
+        });
+      }
+    }]
   });
 }
 
@@ -371,8 +380,24 @@ function renderDailyTrend(data) {
       label:'消耗', data:values, borderColor:'#1677ff', backgroundColor:'rgba(22,119,255,0.1)',
       fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#1677ff'
     }]},
-    options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
-      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
+   options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
+      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } },
+    plugins: [{
+      afterDraw: function(chart) {
+        const ctx = chart.ctx;
+        chart.data.datasets.forEach(function(dataset, i) {
+          const meta = chart.getDatasetMeta(i);
+          meta.data.forEach(function(bar, index) {
+            const data = dataset.data[index];
+            ctx.fillStyle = '#1d1d1f';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(data.toLocaleString(), bar.x, bar.y - 6);
+          });
+        });
+      }
+    }]
   });
 }
 
@@ -524,7 +549,8 @@ function renderTargets(data) {
   tbody.innerHTML = '<tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr>' + entries.map(e => {
     const pct = Math.round(e.rate);
     const barColor = e.rate >= 100 ? '#52c41a' : e.rate >= 50 ? '#faad14' : '#ff4d4f';
-    return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+pct+'%</td><td><div style="background:#e8e8e8;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;"><div style="background:'+barColor+';height:8px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;"></div></div></td></tr>';
+   return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+pct+'%</td><td><div style="background:#e8e8e8;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;"><div style="background:'+barColor+';height:8px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;"></div></div></td></tr>';
+    return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+pct+'%</td><td><div style="position:relative;background:#e8e8e8;border-radius:4px;height:18px;width:120px;display:inline-block;vertical-align:middle;overflow:hidden;"><div style="background:'+barColor+';height:18px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;line-height:18px;text-align:center;font-size:11px;color:#fff;font-weight:600;">'+pct+'%</div></div></td></tr>';
   }).join('');
 }
 
