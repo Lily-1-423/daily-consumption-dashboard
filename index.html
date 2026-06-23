@@ -427,7 +427,7 @@ function renderMediaAnomalies(data) {
   }
   changes.sort((a, b) => b.diff - a.diff);
   const top5Rise = changes.filter(c => c.diff > 0).slice(0, 5);
-  const top5Fall = changes.filter(c => c.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 5);
+  const top5Fall = changes.filter(c => c.diff < 0).sort((a, b) => b.diff - a.diff).slice(0, 5);
 
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
   html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">媒体涨幅 Top5</h4><table class="data-table"><tr><th>媒体</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th><th>涨幅%</th></tr>';
@@ -460,7 +460,7 @@ function renderOperatorAnomalies(data) {
   }
   changes.sort((a, b) => b.diff - a.diff);
   const top5Rise = changes.filter(c => c.diff > 0).slice(0, 5);
-  const top5Fall = changes.filter(c => c.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 5);
+  const top5Fall = changes.filter(c => c.diff < 0).sort((a, b) => b.diff - a.diff).slice(0, 5);
 
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
   html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">运营人员涨幅 Top5</h4><table class="data-table"><tr><th>操作人</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th><th>涨幅%</th></tr>';
@@ -497,7 +497,7 @@ function renderClientAnomalies(data) {
   }
   changes.sort((a, b) => b.diff - a.diff);
   const top5Rise = changes.slice(0, 5);
-  const top5Fall = changes.slice(-5);
+  const top5Fall = changes.filter(c => c.diff < 0).sort((a, b) => b.diff - a.diff).slice(0, 5);
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
   html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">客户涨幅 Top5</h4><table class="data-table"><tr><th>客户</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th><th>涨幅%</th></tr>';
   top5Rise.forEach(c => { const d = c.curr - c.prev; if (d > 0) html += '<tr><td>'+c.client+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(d)+'</td><td>+'+Math.round(c.pct)+'%</td></tr>'; });
