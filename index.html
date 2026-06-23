@@ -4,8 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>运营消耗看板</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<style>
+<script src="chart.min.js"></script>
+<style>.data-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+.data-table th { background:#f5f5f7; padding:8px 10px; text-align:left; font-weight:600; color:#1d1d1f; border-bottom:1px solid #e5e5ea; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; }
+.data-table td { padding:7px 10px; border-bottom:1px solid #f0f0f0; color:#1d1d1f; }
+.data-table tr:last-child td { border-bottom:none; }
+.data-table tr:hover td { background:#fafafa; }
+.data-table .up { color:#ff4d4f; font-weight:600; }
+.data-table .down { color:#52c41a; font-weight:600; }
+
 * { margin:0; padding:0; box-sizing:border-box; }
 :root {
   --bg:#f0f2f5; --card:#fff; --primary:#4f6ef7; --primary-light:#eef1ff;
@@ -53,15 +60,9 @@ body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Rob
 .chart-box.full { grid-column:1/-1; }
 .chart-box h3 { font-size:14px; font-weight:600; margin-bottom:16px; }
 .chart-box canvas { max-height:300px; }
-.data-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; }
-.data-table th { background:#f8f9fb; text-align:left; padding:10px 14px; font-weight:600; font-size:11px; color:var(--text2); border-bottom:1.5px solid var(--border); white-space:nowrap; letter-spacing:0.3px; text-transform:uppercase; }
+
 .data-table th:first-child { border-radius:8px 0 0 0; }
 .data-table th:last-child { border-radius:0 8px 0 0; }
-.data-table td { padding:9px 14px; border-bottom:1px solid #f0f0f0; font-size:12px; }
-.data-table tr:last-child td { border-bottom:none; }
-.data-table tr:hover td { background:#f8f9fb; }
-.data-table .up { color:var(--danger); font-weight:600; }
-.data-table .down { color:var(--success); font-weight:600; }
 .anomaly { padding:24px; background:var(--card); border-radius:var(--radius); margin-bottom:24px; border:1px solid var(--border); box-shadow:var(--shadow); }
 .anomaly h3 { font-size:14px; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
 .anomaly h4 { font-size:13px; font-weight:600; margin-bottom:10px; }
@@ -132,10 +133,12 @@ let charts = {};
 let currentGroup = '王孟';
 
 function getGroupData(group) {
+  let data;
   if (group === '汇总') {
-    return RAW_DATA.filter(r => (r.盟效运营组 === '王孟' || r.盟效运营组 === '刘静' || r.盟效运营组 === '钱世豪' || r.盟效运营组 === '张远祥') && r.账户操作人 !== '/');
+    data = RAW_DATA.filter(r => (r.盟效运营组 === '王孟' || r.盟效运营组 === '刘静' || r.盟效运营组 === '钱世豪' || r.盟效运营组 === '张远祥') && r.账户操作人 !== '/');
+  } else {
+    data = RAW_DATA.filter(r => (r.盟效运营组 === group || (group === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
   }
-  let data = RAW_DATA.filter(r => (r.盟效运营组 === group || (group === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
   const op = document.getElementById('filterOperator').value;
   const md = document.getElementById('filterMedia').value;
   if (op) data = data.filter(r => r.账户操作人 === op);
@@ -197,7 +200,7 @@ function applyFilters() {
   const opFilter = document.getElementById('filterOperator').value;
   adjustLayoutForFilter(data, opFilter);
   renderStats(data);
-  renderOperatorChart(data);
+  // renderOperatorChart removed
   renderMediaTable(data);
   renderClientTable(data);
   renderDailyTrend(data);
@@ -205,18 +208,20 @@ function applyFilters() {
   renderMediaAnomalies(data);
   renderOperatorAnomalies(data);
   renderClientAnomalies(data);
+  // Hide operator chart for 汇总
+  const oc = document.querySelector('.operator-chart-box');
+  if (oc) oc.style.display = 'none';
 }
 
 function adjustLayoutForFilter(data, opFilter) {
   const opChart = document.querySelector('.operator-chart-box');
   const firstStat = document.querySelector('.stat-card:first-child');
   if (!opChart || !firstStat) return;
+  opChart.style.display = 'none';
   if (opFilter) {
-    opChart.style.display = 'none';
     firstStat.querySelector('.label').textContent = opFilter;
     firstStat.querySelector('.sub').textContent = '运营人员';
   } else {
-    opChart.style.display = '';
     firstStat.querySelector('.label').textContent = '总消耗';
     firstStat.querySelector('.sub').textContent = '总计';
   }
@@ -234,7 +239,8 @@ function renderStats(data) {
       subs.forEach(sg => sg.operators.forEach(op => opsSet.add(op)));
     }
   }
-  if (currentGroup === '钱世豪') { opsSet.delete('钱世豪'); opsSet.delete('刘艳'); opsSet.delete('彭静'); }
+  if (currentGroup === '钱世豪') { opsSet.delete('钱世豪'); }
+  if (currentGroup === '汇总') { opsSet.delete('钱世豪'); opsSet.delete('刘艳'); }
   const operators = opsSet.size;
   const media = new Set(data.map(r => r.媒体)).size;
   const clients = new Set(data.map(r => r.客户)).size;
@@ -252,16 +258,27 @@ function renderStats(data) {
     const lDay = new Date(ld).getDate();
     const totalMonthDays = new Date(new Date(fd).getFullYear(), new Date(fd).getMonth() + 1, 0).getDate();
     const timePct = Math.round(days / totalMonthDays * 100);
-    let groupData = RAW_DATA.filter(r => (r.盟效运营组 === currentGroup || (currentGroup === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
+    let groupData = data;
     const groupTotal = sum(groupData.map(r => r.消耗));
-    const personCount = new Set(groupData.map(r => r.账户操作人)).size;
-    const actual = personCount > 0 && days > 0 ? (groupTotal / personCount / totalMonthDays / 10000) : 0;
+    let personSet2 = new Set(groupData.map(r => r.账户操作人));
+    if (currentGroup === '王孟') {
+      const subs = SUB_GROUPS['王孟'] || [];
+      if (currentSubGroup) {
+        const sg = subs.find(s => s.id === currentSubGroup);
+        if (sg) sg.operators.forEach(op => personSet2.add(op));
+      } else {
+        subs.forEach(sg => sg.operators.forEach(op => personSet2.add(op)));
+      }
+    }
+    if (currentGroup === '钱世豪') { personSet2.delete('钱世豪'); personSet2.delete('刘艳'); personSet2.delete('彭静'); }
+    const personCount = personSet2.size;
+    const actual = personCount > 0 && days > 0 ? (groupTotal / personCount / days / 10000) : 0;
     const subGroupTargets = {'刘静组':5};
   const target = currentSubGroup && subGroupTargets[currentSubGroup] ? subGroupTargets[currentSubGroup] : leaderTargets[currentGroup];
   const groupLabel = currentSubGroup || (currentGroup + '组');
     const rate = target > 0 ? (actual / target * 100) : 0;
     leaderCards = '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">目标消耗</div><div style="font-size:22px;font-weight:700;">' + target + '万</div><div style="font-size:11px;color:var(--text2);">万/人/天</div></div>'
-      + '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">实际消耗</div><div style="font-size:22px;font-weight:700;">' + actual.toFixed(2) + '万</div><div style="font-size:11px;color:var(--text2);">万/人/天</div></div>'
+      + '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">实际消耗</div><div style="font-size:22px;font-weight:700;">' + actual.toFixed(1) + '万</div><div style="font-size:11px;color:var(--text2);">万/人/天</div></div>'
       + '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">达成率</div><div style="font-size:22px;font-weight:700;color:' + (rate >= 100 ? '#52c41a' : rate >= 50 ? '#faad14' : '#ff4d4f') + ';">' + Math.round(rate) + '%</div><div style="font-size:11px;color:var(--text2);">' + currentGroup + '组</div></div>'
       + '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">时间进度</div><div style="font-size:22px;font-weight:700;color:#1677ff;">' + timePct + '%</div><div style="font-size:11px;color:var(--text2);">' + fMonth + '月' + fDay + '日-' + lDay + '日</div></div>';
   }
@@ -276,7 +293,7 @@ function renderStats(data) {
     tp.timePct = Math.round(d / tmd * 100);
   }
   const items = [
-    { label:'总消耗', value:totalConsumption.toLocaleString('zh-CN',{minimumFractionDigits:0}), sub:'总计' },
+    { label:'总消耗', value:totalConsumption.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0}), sub:'总计' },
     { label:'运营人员', value:operators, sub:'人' },
     { label:'媒体数', value:media, sub:'个' },
     { label:'客户数', value:clients, sub:'个' },
@@ -325,7 +342,7 @@ function renderMediaTable(data) {
   tbody.innerHTML = '<tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr>' + entries.map((e,i) => {
     const pct = total > 0 ? Math.round(e.value / total * 100) : 0;
     const barW = maxVal > 0 ? (e.value / maxVal * 100) : 0;
-    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#1677ff;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
+    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#1677ff;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
   }).join('');
 }
 
@@ -340,12 +357,12 @@ function renderClientTable(data) {
   tbody.innerHTML = '<tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr>' + entries.map((e,i) => {
     const pct = total > 0 ? Math.round(e.value / total * 100) : 0;
     const barW = maxVal > 0 ? (e.value / maxVal * 100) : 0;
-    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#722ed1;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
+    return '<tr><td>'+(i+1)+'</td><td>'+e.name+'</td><td>'+e.value.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+pct+'% <div style="background:#e8e8e8;border-radius:4px;height:6px;margin-top:4px;"><div style="background:#722ed1;height:6px;border-radius:4px;width:'+barW+'%;"></div></div></td></tr>';
   }).join('');
 }
 
 function renderDailyTrend(data) {
-  const dates = [...new Set(RAW_DATA.filter(r => currentGroup === '汇总' ? true : r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  const dates = [...new Set(RAW_DATA.filter(r => currentGroup === '汇总' ? true : r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-5);
   const grouped = groupBy(data, '日期');
   const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
   destroyChart('chartDaily');
@@ -360,74 +377,72 @@ function renderDailyTrend(data) {
 }
 
 
+
 function renderMediaAnomalies(data) {
   const dates = [...new Set(RAW_DATA.filter(r => currentGroup === '汇总' ? true : r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  if (dates.length < 2) { document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">暂无足够数据</p>'; return; }
+  const d1 = dates[0], d2 = dates[1];
   const mediaDaily = {};
-  const grouped = groupBy(data, '媒体');
-  grouped.forEach((items, media) => {
+  groupBy(data, '媒体').forEach((items, media) => {
     const byDate = groupBy(items, '日期');
-    mediaDaily[media] = {};
-    dates.forEach(d => { const items2 = byDate.get(d); mediaDaily[media][d] = items2 ? sum(items2.map(r => r.消耗)) : 0; });
+    mediaDaily[media] = {
+      [d1]: byDate.get(d1) ? sum(byDate.get(d1).map(r=>r.消耗)) : 0,
+      [d2]: byDate.get(d2) ? sum(byDate.get(d2).map(r=>r.消耗)) : 0
+    };
   });
   let changes = [];
   Object.entries(mediaDaily).forEach(([media, daily]) => {
-    for (let i = 1; i < dates.length; i++) {
-      const prev = daily[dates[i-1]] || 0;
-      const curr = daily[dates[i]] || 0;
-      const pct = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
-      changes.push({ media, date:dates[i], prev, curr, pct });
-    }
+    const prev = daily[d1] || 0, curr = daily[d2] || 0, diff = curr - prev;
+    const pct = prev > 0 ? (diff / prev * 100) : (curr > 0 ? 100 : 0);
+    if (Math.abs(diff) >= 5) changes.push({ media, date: d2, prev, curr, diff, pct });
   });
   if (changes.length === 0) {
-    document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">暂无足够数据</p>';
+    document.getElementById('anomalyTables').innerHTML = '<p style="color:#999;">最少2天数据且>=5条记录</p>';
     return;
   }
-  changes.sort((a, b) => b.pct - a.pct);
-  const top5Rise = changes.slice(0, 5);
-  const top5Fall = changes.slice(-5).reverse();
+  changes.sort((a, b) => b.diff - a.diff);
+  const top5Rise = changes.filter(c => c.diff > 0).slice(0, 5);
+  const top5Fall = changes.filter(c => c.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 5);
+
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>涨幅</th></tr>';
-  top5Rise.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">媒体涨幅 Top5</h4><table class="data-table"><tr><th>媒体</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th><th>涨幅%</th></tr>';
+  top5Rise.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.diff)+'</td><td>+'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div>';
-  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>降幅</th></tr>';
-  top5Fall.forEach(c => { if (c.pct <= 0) html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">媒体降幅 Top5</h4><table class="data-table"><tr><th>媒体</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th><th>降幅%</th></tr>';
+  top5Fall.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.diff)+'</td><td>'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div></div>';
   document.getElementById('anomalyTables').innerHTML = html;
 }
 
-
-
 function renderOperatorAnomalies(data) {
   const dates = [...new Set(RAW_DATA.filter(r => currentGroup === '汇总' ? true : r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  if (dates.length < 2) { document.getElementById('anomalyOperatorContent').innerHTML = '<p style="color:#999;">暂无足够数据</p>'; return; }
+  const d1 = dates[0], d2 = dates[1];
   const opDaily = {};
-  const grouped = groupBy(data, '账户操作人');
-  grouped.forEach((items, op) => {
+  groupBy(data, '账户操作人').forEach((items, op) => {
     const byDate = groupBy(items, '日期');
-    opDaily[op] = {};
-    dates.forEach(d => { opDaily[op][d] = byDate.get(d) ? sum(byDate.get(d).map(r=>r.消耗)) : 0; });
+    opDaily[op] = { [d1]: byDate.get(d1) ? sum(byDate.get(d1).map(r=>r.消耗)) : 0, [d2]: byDate.get(d2) ? sum(byDate.get(d2).map(r=>r.消耗)) : 0 };
   });
   let changes = [];
   Object.entries(opDaily).forEach(([op, daily]) => {
-    for (let i = 1; i < dates.length; i++) {
-      const prev = daily[dates[i-1]] || 0;
-      const curr = daily[dates[i]] || 0;
-      const pct = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
-      changes.push({ op, date:dates[i], prev, curr, pct });
-    }
+    const prev = daily[d1] || 0, curr = daily[d2] || 0, diff = curr - prev;
+    const pct = prev > 0 ? (diff / prev * 100) : (curr > 0 ? 100 : 0);
+    if (Math.abs(diff) >= 5) changes.push({ op, date: d2, prev, curr, diff, pct });
   });
   if (changes.length === 0) {
-    document.getElementById('anomalyOperatorContent').innerHTML = '<p style=color:#999;>暂无足够数据</p>';
+    document.getElementById('anomalyOperatorContent').innerHTML = '<p style="color:#999;">最少2天数据且>=5条记录</p>';
     return;
   }
-  changes.sort((a, b) => b.pct - a.pct);
-  const top5Rise = changes.slice(0, 5);
-  const top5Fall = changes.slice(-5).reverse();
+  changes.sort((a, b) => b.diff - a.diff);
+  const top5Rise = changes.filter(c => c.diff > 0).slice(0, 5);
+  const top5Fall = changes.filter(c => c.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 5);
+
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>涨幅</th></tr>';
-  top5Rise.forEach(c => { html += '<tr><td>'+c.op+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">运营人员涨幅 Top5</h4><table class="data-table"><tr><th>操作人</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th><th>涨幅%</th></tr>';
+  top5Rise.forEach(c => { html += '<tr><td>'+c.op+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.diff)+'</td><td>+'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div>';
-  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>降幅</th></tr>';
-  top5Fall.forEach(c => { if (c.pct <= 0) html += '<tr><td>'+c.op+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">运营人员降幅 Top5</h4><table class="data-table"><tr><th>操作人</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th><th>降幅%</th></tr>';
+  top5Fall.forEach(c => { html += '<tr><td>'+c.op+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.diff)+'</td><td>'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div></div>';
   document.getElementById('anomalyOperatorContent').innerHTML = html;
 }
@@ -452,23 +467,21 @@ function renderClientAnomalies(data) {
     }
   });
   if (changes.length === 0) {
-    document.getElementById('anomalyClientContent').innerHTML = '<p style=color:#999;>暂无足够数据</p>';
+    document.getElementById('anomalyClientContent').innerHTML = '<p style="color:#999;">暂无足够数据</p>';
     return;
   }
-  changes.sort((a, b) => (b.curr - b.prev) - (a.curr - a.prev));
+  changes.sort((a, b) => b.diff - a.diff);
   const top5Rise = changes.slice(0, 5);
-  const top5Fall = changes.slice(-5).reverse();
+  const top5Fall = changes.slice(-5);
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th></tr>';
-  top5Rise.forEach(c => { const d = c.curr - c.prev; if (d > 0) html += '<tr><td>'+c.client+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(d)+'</td></tr>'; });
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">客户涨幅 Top5</h4><table class="data-table"><tr><th>客户</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th><th>涨幅%</th></tr>';
+  top5Rise.forEach(c => { const d = c.curr - c.prev; if (d > 0) html += '<tr><td>'+c.client+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(d)+'</td><td>+'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div>';
-  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th></tr>';
-  top5Fall.forEach(c => { if (c.diff < 0) html += '<tr><td>'+c.client+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.diff)+'</td></tr>'; });
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">客户降幅 Top5</h4><table class="data-table"><tr><th>客户</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th><th>降幅%</th></tr>';
+  top5Fall.forEach(c => { if (c.diff < 0) html += '<tr><td>'+c.client+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.diff)+'</td><td>'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div></div>';
   document.getElementById('anomalyClientContent').innerHTML = html;
 }
-
-
 function renderTargets(data) {
   const defaultTargets = {"余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,"任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,"陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任嫫":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000,"项任娸":1500000,"刘静":1500000};
   const sectionTitle = document.querySelector('#targetSection h3');
@@ -488,7 +501,8 @@ function renderTargets(data) {
       const subs = SUB_GROUPS['王孟'] || [];
       subs.forEach(sg => sg.operators.forEach(op => { if (op !== '刘静') opsSet.add(op); }));
     }
-        if (currentGroup === '钱世豪') { opsSet.delete('钱世豪'); opsSet.delete('刘艳'); opsSet.delete('彭静'); }
+        if (currentGroup === '钱世豪') { opsSet.delete('钱世豪'); }
+  if (currentGroup === '汇总') { opsSet.delete('钱世豪'); opsSet.delete('刘艳'); }
     groupOps = [...opsSet];
     }
     sectionTitle.textContent = '运营目标及达成情况';
@@ -510,7 +524,7 @@ function renderTargets(data) {
   tbody.innerHTML = '<tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr>' + entries.map(e => {
     const pct = Math.round(e.rate);
     const barColor = e.rate >= 100 ? '#52c41a' : e.rate >= 50 ? '#faad14' : '#ff4d4f';
-    return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td><td>'+pct+'%</td><td><div style="background:#e8e8e8;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;"><div style="background:'+barColor+';height:8px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;"></div></div></td></tr>';
+    return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+pct+'%</td><td><div style="background:#e8e8e8;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;"><div style="background:'+barColor+';height:8px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;"></div></div></td></tr>';
   }).join('');
 }
 
@@ -558,6 +572,8 @@ function destroyChart(id) {
 }
 
 initDashboard();
+
 </script>
 </body>
 </html>
+
