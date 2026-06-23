@@ -122,7 +122,7 @@ let wangMengExpanded = true;
 
 const SUB_GROUPS = {
   '王孟': [
-    { id: '刘静组', label: '刘静组', operators: ['刘秋芬','孟杨','杨玉洁','陈佳','薛岭','项任娸','鲁伊雯'] },
+    { id: '刘静组', label: '刘静组', operators: ['刘秋芬','孟杨','杨玉洁','陈佳','薛岭','项任娸','鲁伊雯','刘静'] },
     { id: '上海综合行业组', label: '上海综合行业组', operators: ['董崇阳','章晓东','李露露','陈瑶瑶'] },
     { id: '上海支付宝组', label: '上海支付宝组', operators: ['刘云杰'] }
   ]
@@ -132,6 +132,9 @@ let charts = {};
 let currentGroup = '王孟';
 
 function getGroupData(group) {
+  if (group === '汇总') {
+    return RAW_DATA.filter(r => (r.盟效运营组 === '王孟' || r.盟效运营组 === '刘静' || r.盟效运营组 === '钱世豪' || r.盟效运营组 === '张远祥') && r.账户操作人 !== '/');
+  }
   let data = RAW_DATA.filter(r => (r.盟效运营组 === group || (group === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
   const op = document.getElementById('filterOperator').value;
   const md = document.getElementById('filterMedia').value;
@@ -157,13 +160,22 @@ function switchGroup(group) {
   currentSubGroup = '';
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.group === group));
   document.querySelectorAll('.sub-nav-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('groupTitle').textContent = group + '组 · 运营看板';
+  if (group === '汇总') {
+    document.getElementById('groupTitle').textContent = '运营看板 · 汇总';
+  } else {
+    document.getElementById('groupTitle').textContent = group + '组 · 运营看板';
+  }
   updateFilters();
   applyFilters();
 }
 
 function updateFilters() {
-  const data = RAW_DATA.filter(r => (r.盟效运营组 === currentGroup || (currentGroup === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
+  let data;
+  if (currentGroup === '汇总') {
+        data = RAW_DATA.filter(r => (r.盟效运营组 === '王孟' || r.盟效运营组 === '刘静' || r.盟效运营组 === '钱世豪' || r.盟效运营组 === '张远祥') && r.账户操作人 !== '/');
+  } else {
+    data = RAW_DATA.filter(r => (r.盟效运营组 === currentGroup || (currentGroup === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/');
+  }
   let ops = [...new Set(data.map(r => r.账户操作人))].sort();
   const meds = [...new Set(data.map(r => r.媒体))].sort();
   if (currentSubGroup && currentGroup === '王孟') {
@@ -212,7 +224,18 @@ function adjustLayoutForFilter(data, opFilter) {
 
 function renderStats(data) {
   const totalConsumption = sum(data.map(r => r.消耗));
-  const operators = new Set(data.map(r => r.账户操作人)).size;
+  let opsSet = new Set(data.map(r => r.账户操作人));
+  if (currentGroup === '王孟') {
+    const subs = SUB_GROUPS['王孟'] || [];
+    if (currentSubGroup) {
+      const sg = subs.find(s => s.id === currentSubGroup);
+      if (sg) sg.operators.forEach(op => opsSet.add(op));
+    } else {
+      subs.forEach(sg => sg.operators.forEach(op => opsSet.add(op)));
+    }
+  }
+  if (currentGroup === '钱世豪') { opsSet.delete('钱世豪'); opsSet.delete('刘艳'); opsSet.delete('彭静'); }
+  const operators = opsSet.size;
   const media = new Set(data.map(r => r.媒体)).size;
   const clients = new Set(data.map(r => r.客户)).size;
   const leaderTargets = {'钱世豪':7,'王孟':6,'张远祥':5};
@@ -243,7 +266,7 @@ function renderStats(data) {
       + '<div style="flex:1;background:var(--card);border-radius:var(--radius);padding:16px 20px;border:1px solid var(--border);text-align:center;"><div style="font-size:12px;color:var(--text2);margin-bottom:2px;">时间进度</div><div style="font-size:22px;font-weight:700;color:#1677ff;">' + timePct + '%</div><div style="font-size:11px;color:var(--text2);">' + fMonth + '月' + fDay + '日-' + lDay + '日</div></div>';
   }
   const tp = {};
-  if (currentSubGroup === '上海综合行业组' || currentSubGroup === '上海支付宝组') {
+  if (currentSubGroup === '上海综合行业组' || currentSubGroup === '上海支付宝组' || currentGroup === '汇总') {
     const allDates = [...new Set(RAW_DATA.map(r => r.日期))].sort();
     const d = allDates.length, fd = allDates[0], ld = allDates[d - 1];
     tp.fMonth = new Date(fd).getMonth() + 1;
@@ -257,7 +280,7 @@ function renderStats(data) {
     { label:'运营人员', value:operators, sub:'人' },
     { label:'媒体数', value:media, sub:'个' },
     { label:'客户数', value:clients, sub:'个' },
-    ...(currentSubGroup === '上海综合行业组' || currentSubGroup === '上海支付宝组' ? [{ label:'时间进度', value:'<span style="color:#1677ff">' + tp.timePct + '%</span>', sub: tp.fMonth + '月' + tp.fDay + '日-' + tp.lDay + '日' }] : [])
+    ...(currentSubGroup === '上海综合行业组' || currentSubGroup === '上海支付宝组' || currentGroup === '汇总' ? [{ label:'时间进度', value:'<span style="color:#1677ff">' + tp.timePct + '%</span>', sub: tp.fMonth + '月' + tp.fDay + '日-' + tp.lDay + '日' }] : [])
   ];
   let mainHtml = '<div style="grid-column:1/-1;display:flex;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);">';
   items.forEach((s, i) => {
@@ -322,7 +345,7 @@ function renderClientTable(data) {
 }
 
 function renderDailyTrend(data) {
-  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  const dates = [...new Set(RAW_DATA.filter(r => currentGroup === '汇总' ? true : r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
   const grouped = groupBy(data, '日期');
   const values = dates.map(d => { const items = grouped.get(d); return items ? sum(items.map(r => r.消耗)) : 0; });
   destroyChart('chartDaily');
@@ -338,7 +361,7 @@ function renderDailyTrend(data) {
 
 
 function renderMediaAnomalies(data) {
-  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  const dates = [...new Set(RAW_DATA.filter(r => currentGroup === '汇总' ? true : r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
   const mediaDaily = {};
   const grouped = groupBy(data, '媒体');
   grouped.forEach((items, media) => {
@@ -363,10 +386,10 @@ function renderMediaAnomalies(data) {
   const top5Rise = changes.slice(0, 5);
   const top5Fall = changes.slice(-5).reverse();
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>涨幅</th></tr>';
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>涨幅</th></tr>';
   top5Rise.forEach(c => { html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div>';
-  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>降幅</th></tr>';
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>媒体</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>降幅</th></tr>';
   top5Fall.forEach(c => { if (c.pct <= 0) html += '<tr><td>'+c.media+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div></div>';
   document.getElementById('anomalyTables').innerHTML = html;
@@ -375,7 +398,7 @@ function renderMediaAnomalies(data) {
 
 
 function renderOperatorAnomalies(data) {
-  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  const dates = [...new Set(RAW_DATA.filter(r => currentGroup === '汇总' ? true : r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
   const opDaily = {};
   const grouped = groupBy(data, '账户操作人');
   grouped.forEach((items, op) => {
@@ -400,17 +423,17 @@ function renderOperatorAnomalies(data) {
   const top5Rise = changes.slice(0, 5);
   const top5Fall = changes.slice(-5).reverse();
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>涨幅</th></tr>';
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>涨幅</th></tr>';
   top5Rise.forEach(c => { html += '<tr><td>'+c.op+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div>';
-  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>降幅</th></tr>';
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>运营人员</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>降幅</th></tr>';
   top5Fall.forEach(c => { if (c.pct <= 0) html += '<tr><td>'+c.op+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.pct)+'%</td></tr>'; });
   html += '</table></div></div>';
   document.getElementById('anomalyOperatorContent').innerHTML = html;
 }
 
 function renderClientAnomalies(data) {
-  const dates = [...new Set(RAW_DATA.filter(r=>r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
+  const dates = [...new Set(RAW_DATA.filter(r => currentGroup === '汇总' ? true : r.盟效运营组===currentGroup).map(r => r.日期))].sort().slice(-2);
   const clientDaily = {};
   const grouped = groupBy(data, '客户');
   grouped.forEach((items, client) => {
@@ -423,38 +446,51 @@ function renderClientAnomalies(data) {
     for (let i = 1; i < dates.length; i++) {
       const prev = daily[dates[i-1]] || 0;
       const curr = daily[dates[i]] || 0;
+      const diff = curr - prev;
       const pct = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
-      changes.push({ client, date:dates[i], prev, curr, pct });
+      changes.push({ client, date:dates[i], prev, curr, diff, pct });
     }
   });
   if (changes.length === 0) {
     document.getElementById('anomalyClientContent').innerHTML = '<p style=color:#999;>暂无足够数据</p>';
     return;
   }
-  changes.sort((a, b) => b.pct - a.pct);
+  changes.sort((a, b) => (b.curr - b.prev) - (a.curr - a.prev));
   const top5Rise = changes.slice(0, 5);
   const top5Fall = changes.slice(-5).reverse();
   let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">';
-  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>涨幅</th></tr>';
-  top5Rise.forEach(c => { html += '<tr><td>'+c.client+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '<div><h4 style="margin-bottom:8px;color:#ff4d4f;">📈 上升 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th></tr>';
+  top5Rise.forEach(c => { const d = c.curr - c.prev; if (d > 0) html += '<tr><td>'+c.client+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="up">+'+Math.round(d)+'</td></tr>'; });
   html += '</table></div>';
-  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>当日消耗</th><th>降幅</th></tr>';
-  top5Fall.forEach(c => { if (c.pct <= 0) html += '<tr><td>'+c.client+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.pct)+'%</td></tr>'; });
+  html += '<div><h4 style="margin-bottom:8px;color:#52c41a;">📉 下降 Top5</h4><table class="data-table"><tr><th>客户</th><th>日期</th><th>前日消耗</th><th>昨日消耗</th><th>消耗差</th></tr>';
+  top5Fall.forEach(c => { if (c.diff < 0) html += '<tr><td>'+c.client+'</td><td>'+c.date+'</td><td>'+Math.round(c.prev)+'</td><td>'+Math.round(c.curr)+'</td><td class="down">'+Math.round(c.diff)+'</td></tr>'; });
   html += '</table></div></div>';
   document.getElementById('anomalyClientContent').innerHTML = html;
 }
 
 
 function renderTargets(data) {
-  const defaultTargets = {"余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,"任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,"陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任嫫":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000};
+  const defaultTargets = {"余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,"任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,"陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任嫫":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000,"项任娸":1500000,"刘静":1500000};
   const sectionTitle = document.querySelector('#targetSection h3');
   let groupOps;
   if (currentSubGroup && currentGroup === '王孟') {
     const sg = SUB_GROUPS[currentGroup].find(s => s.id === currentSubGroup);
-    groupOps = sg ? sg.operators : [];
+    groupOps = sg ? sg.operators.filter(op => op !== '刘静') : [];
     sectionTitle.textContent = currentSubGroup + ' · 目标及达成情况';
   } else {
-    groupOps = [...new Set(RAW_DATA.filter(r => (r.盟效运营组 === currentGroup || (currentGroup === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/').map(r => r.账户操作人))];
+    if (currentGroup === '汇总') {
+      let opsMX = new Set(RAW_DATA.filter(r => (r.盟效运营组 === '王孟' || r.盟效运营组 === '刘静' || r.盟效运营组 === '钱世豪' || r.盟效运营组 === '张远祥') && r.账户操作人 !== '/').map(r => r.账户操作人));
+      opsMX.delete('钱世豪'); opsMX.delete('刘艳'); opsMX.delete('彭静');
+      groupOps = [...opsMX];
+    } else {
+      let opsSet = new Set(RAW_DATA.filter(r => (r.盟效运营组 === currentGroup || (currentGroup === '王孟' && r.盟效运营组 === '刘静')) && r.账户操作人 !== '/').map(r => r.账户操作人));
+    if (currentGroup === '王孟') {
+      const subs = SUB_GROUPS['王孟'] || [];
+      subs.forEach(sg => sg.operators.forEach(op => { if (op !== '刘静') opsSet.add(op); }));
+    }
+        if (currentGroup === '钱世豪') { opsSet.delete('钱世豪'); opsSet.delete('刘艳'); opsSet.delete('彭静'); }
+    groupOps = [...opsSet];
+    }
     sectionTitle.textContent = '运营目标及达成情况';
   }
   let entries = groupOps.map(k => {
@@ -481,7 +517,7 @@ function renderTargets(data) {
 function buildSidebar() {
   const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort().filter(g => g !== '刘静' && g !== '盟效运营');
   const container = document.getElementById('sidebarItems');
-  container.innerHTML = '<div class="nav-section">运营组</div>' + groups.map(g => {
+  container.innerHTML = '<div class="nav-item' + (currentGroup === '汇总' ? ' active' : '') + '" onclick="switchGroup(\'汇总\')"><span class="nav-dot"></span>汇总</div><div class="nav-section">运营组</div>' + groups.map(g => {
     const active = g === currentGroup && !currentSubGroup ? ' active' : '';
     if (g === '王孟') {
       const expanded = wangMengExpanded ? ' expanded' : '';
@@ -499,8 +535,7 @@ function buildSidebar() {
 function initDashboard() {
   buildSidebar();
   if (!currentGroup) {
-    const groups = [...new Set(RAW_DATA.map(r => r.盟效运营组).filter(g => g && g !== '/'))].sort().filter(g => g !== '刘静' && g !== '盟效运营');
-    currentGroup = groups[0] || '王孟';
+    currentGroup = '汇总';
   }
   document.getElementById('groupTitle').textContent = currentGroup + '组 · 运营看板';
   updateFilters();
