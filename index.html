@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>运营消耗看板</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="chart.min.js"></script>
 <style>.data-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
 .data-table th { background:#f5f5f7; padding:8px 10px; text-align:left; font-weight:600; color:#1d1d1f; border-bottom:1px solid #e5e5ea; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; }
 .data-table td { padding:7px 10px; border-bottom:1px solid #f0f0f0; color:#1d1d1f; }
@@ -94,7 +94,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Rob
     <div class="stats" id="statsRow"></div>
     <div id="targetSection" class="target-section"><h3>运营目标及达成情况</h3><table class="data-table" id="targetTable"><tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr></table></div>
     <div class="chart-grid">
-            <div class="chart-box media-chart-box"><h3>媒体消耗分布</h3><table class="data-table" id="mediaTable"><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></table></div>
+      <div class="chart-box operator-chart-box"><h3>运营人员消耗</h3><canvas id="chartOperator"></canvas></div>
+      <div class="chart-box media-chart-box"><h3>媒体消耗分布</h3><table class="data-table" id="mediaTable"><tr><th>排名</th><th>媒体</th><th>消耗</th><th>占比</th></tr></table></div>
       <div class="chart-box client-chart-box"><h3>客户消耗 Top10</h3><table class="data-table" id="clientTable"><tr><th>排名</th><th>客户</th><th>消耗</th><th>占比</th></tr></table></div>
       <div class="chart-box"><h3>近5日消耗趋势</h3><canvas id="chartDaily"></canvas></div>
     </div>
@@ -197,7 +198,9 @@ function updateFilters() {
 function applyFilters() {
   const data = getGroupData(currentGroup);
   const opFilter = document.getElementById('filterOperator').value;
+  adjustLayoutForFilter(data, opFilter);
   renderStats(data);
+  // renderOperatorChart removed
   renderMediaTable(data);
   renderClientTable(data);
   renderDailyTrend(data);
@@ -205,6 +208,23 @@ function applyFilters() {
   renderMediaAnomalies(data);
   renderOperatorAnomalies(data);
   renderClientAnomalies(data);
+  // Hide operator chart for 汇总
+  const oc = document.querySelector('.operator-chart-box');
+  if (oc) oc.style.display = 'none';
+}
+
+function adjustLayoutForFilter(data, opFilter) {
+  const opChart = document.querySelector('.operator-chart-box');
+  const firstStat = document.querySelector('.stat-card:first-child');
+  if (!opChart || !firstStat) return;
+  opChart.style.display = 'none';
+  if (opFilter) {
+    firstStat.querySelector('.label').textContent = opFilter;
+    firstStat.querySelector('.sub').textContent = '运营人员';
+  } else {
+    firstStat.querySelector('.label').textContent = '总消耗';
+    firstStat.querySelector('.sub').textContent = '总计';
+  }
 }
 
 function renderStats(data) {
@@ -221,7 +241,17 @@ function renderStats(data) {
   }
   if (currentGroup === '钱世豪') { opsSet.delete('钱世豪'); }
   if (currentGroup === '汇总') { opsSet.delete('钱世豪'); opsSet.delete('刘艳'); }
-  const operators = opsSet.size;
+  let operators;
+  if (currentGroup === '汇总') {
+    const zOps = new Set(RAW_DATA.filter(r => r.盟效运营组 === '张远祥').map(r => r.账户操作人));
+    const wOps = new Set(RAW_DATA.filter(r => r.盟效运营组 === '王孟').map(r => r.账户操作人));
+    (SUB_GROUPS['王孟'] || []).forEach(sg => sg.operators.forEach(op => wOps.add(op)));
+    const qOps = new Set(RAW_DATA.filter(r => r.盟效运营组 === '钱世豪').map(r => r.账户操作人));
+    qOps.delete('钱世豪');
+    operators = zOps.size + wOps.size + 9;
+  } else {
+    operators = currentGroup === '钱世豪' ? 9 : opsSet.size;
+  }
   const media = new Set(data.map(r => r.媒体)).size;
   const clients = new Set(data.map(r => r.客户)).size;
   const leaderTargets = {'钱世豪':7,'王孟':6,'张远祥':5};
@@ -352,23 +382,7 @@ function renderDailyTrend(data) {
       fill:true, tension:0.3, pointRadius:4, pointBackgroundColor:'#1677ff'
     }]},
     options:{ responsive:true, maintainAspectRatio:true, plugins:{ legend:{ display:false } },
-      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } },
-    plugins: [{
-      afterDraw: function(chart) {
-        const ctx = chart.ctx;
-        chart.data.datasets.forEach(function(dataset, i) {
-          const meta = chart.getDatasetMeta(i);
-          meta.data.forEach(function(bar, index) {
-            const data = dataset.data[index];
-            ctx.fillStyle = "#1d1d1f";
-            ctx.font = "12px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "bottom";
-            ctx.fillText(data.toLocaleString(), bar.x, bar.y - 6);
-          });
-        });
-      }
-    }]
+      scales:{ y:{ beginAtZero:true, ticks:{ callback:v => v.toLocaleString() } } } }
   });
 }
 
@@ -479,7 +493,7 @@ function renderClientAnomalies(data) {
   document.getElementById('anomalyClientContent').innerHTML = html;
 }
 function renderTargets(data) {
-  const defaultTargets = {"余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,"任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,"陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任嫫":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000,"项任娸":1500000,"刘静":1500000};
+  const defaultTargets = {"余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,"任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,"陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任嫫":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000,"项任娸":1500000,"刘静":1500000,"刘艳":350000};
   const sectionTitle = document.querySelector('#targetSection h3');
   let groupOps;
   if (currentSubGroup && currentGroup === '王孟') {
@@ -520,7 +534,7 @@ function renderTargets(data) {
   tbody.innerHTML = '<tr><th>运营人员</th><th>目标消耗</th><th>实际消耗</th><th>达成率</th><th>进度</th></tr>' + entries.map(e => {
     const pct = Math.round(e.rate);
     const barColor = e.rate >= 100 ? '#52c41a' : e.rate >= 50 ? '#faad14' : '#ff4d4f';
-    return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+pct+'%</td><td><div style="position:relative;background:#e8e8e8;border-radius:4px;height:18px;width:120px;display:inline-block;vertical-align:middle;overflow:hidden;"><div style="background:'+barColor+';height:8px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;"></div></div></td></tr>';
+    return '<tr><td>'+e.name+'</td><td>'+e.target.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+e.total.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0})+'</td><td>'+pct+'%</td><td><div style="background:#e8e8e8;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle;"><div style="background:'+barColor+';height:8px;border-radius:4px;width:'+Math.min(100,e.rate)+'%;"></div></div></td></tr>';
   }).join('');
 }
 
