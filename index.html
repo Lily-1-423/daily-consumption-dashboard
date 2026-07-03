@@ -87,6 +87,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Rob
     <div class="header">
       <h1 id="groupTitle">王孟组 · 运营看板</h1>
       <div class="header-controls">
+        <select id="filterMonth" onchange="applyMonth()"><option value="">全部月份</option></select>
         <select id="filterOperator" onchange="applyFilters()"><option value="">全部运营人员</option></select>
         <select id="filterMedia" onchange="applyFilters()"><option value="">全部媒体</option></select>
       </div>
@@ -143,6 +144,8 @@ function getGroupData(group) {
   const md = document.getElementById('filterMedia').value;
   if (op) data = data.filter(r => r.账户操作人 === op);
   if (md) data = data.filter(r => r.媒体 === md);
+  const mf = document.getElementById("filterMonth").value;
+  if (mf) data = data.filter(r => r.日期.startsWith(mf));
   if (currentSubGroup && group === '王孟') {
     const sg = SUB_GROUPS[group].find(s => s.id === currentSubGroup);
     if (sg) data = data.filter(r => sg.operators.includes(r.账户操作人));
@@ -155,6 +158,8 @@ function switchGroup(group) {
     if (currentGroup === '王孟' && !currentSubGroup) {
       wangMengExpanded = !wangMengExpanded;
       buildSidebar();
+  populateMonthFilter();
+  populateMonthFilter();
       return;
     }
     wangMengExpanded = true;
@@ -195,6 +200,30 @@ function updateFilters() {
   selMd.value = curMd;
 }
 
+
+function populateMonthFilter() {
+  const months = [...new Set(RAW_DATA.map(r => r.日期.slice(0, 7)))].sort();
+  const sel = document.getElementById('filterMonth');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部月份</option>' + months.map(m => '<option value="' + m + '">' + m + '</option>').join('');
+  sel.value = cur;
+}
+function applyMonth() {
+  updateFilters();
+  applyFilters();
+}
+
+function populateMonthFilter() {
+  const months = [...new Set(RAW_DATA.map(r => r.日期.slice(0, 7)))].sort();
+  const sel = document.getElementById('filterMonth');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部月份</option>' + months.map(m => '<option value="' + m + '">' + m + '</option>').join('');
+  sel.value = cur;
+}
+function applyMonth() {
+  updateFilters();
+  applyFilters();
+}
 function applyFilters() {
   const data = getGroupData(currentGroup);
   const opFilter = document.getElementById('filterOperator').value;
@@ -259,7 +288,7 @@ function renderStats(data) {
   const mdFilter = document.getElementById('filterMedia').value;
   let leaderCards = '';
   if (!opFilter && !mdFilter && leaderTargets[currentGroup] && currentSubGroup !== '上海综合行业组' && currentSubGroup !== '上海支付宝组') {
-    const allDates = [...new Set(RAW_DATA.map(r => r.日期))].sort();
+    const allDates = [...new Set(data.map(r => r.日期))].sort();
     const days = allDates.length;
     const fd = allDates[0];
     const ld = allDates[days - 1];
@@ -294,7 +323,7 @@ function renderStats(data) {
   }
   const tp = {};
   if (currentSubGroup === '上海综合行业组' || currentSubGroup === '上海支付宝组' || currentGroup === '汇总') {
-    const allDates = [...new Set(RAW_DATA.map(r => r.日期))].sort();
+    const allDates = [...new Set(data.map(r => r.日期))].sort();
     const d = allDates.length, fd = allDates[0], ld = allDates[d - 1];
     tp.fMonth = new Date(fd).getMonth() + 1;
     tp.fDay = new Date(fd).getDate();
@@ -494,6 +523,8 @@ function renderClientAnomalies(data) {
 }
 function renderTargets(data) {
   const defaultTargets = {"余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,"任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,"陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任嫫":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000,"项任娸":1500000,"刘静":1500000,"刘艳":350000};
+const julyTargets = {"余锐": 1500000, "张远祥": 1500000, "张金莎": 750000, "夏玲欢": 2100000, "邱芬": 2100000, "魏达昌": 2100000, "张琪": 2100000, "李沙": 2100000, "陈安琦": 2100000, "任洁": 2100000, "敖丽": 1050000, "王曼": 1050000, "刘云杰": 4500000, "董崇阳": 1800000, "李露露": 1800000, "陈瑶瑶": 1800000, "鲁伊雯": 1500000, "孟杨": 1500000, "项  任": 1500000, "刘秋芬": 1500000, "杨玉洁": 1500000, "陈佳": 1500000, "薛岭": 750000};
+
   const sectionTitle = document.querySelector('#targetSection h3');
   let groupOps;
   if (currentSubGroup && currentGroup === '王孟') {
@@ -520,7 +551,8 @@ function renderTargets(data) {
   let entries = groupOps.map(k => {
     const opData = data.filter(r => r.账户操作人 === k);
     const total = opData.length > 0 ? sum(opData.map(r => r.消耗)) : 0;
-    const target = defaultTargets[k] || 0;
+    const tgt = document.getElementById("filterMonth").value === "2026-07" ? julyTargets : defaultTargets;
+    const target = tgt[k] || 0;
     const rate = target > 0 ? (total / target * 100) : 0;
     return { name:k, total, target, rate };
   });
@@ -558,6 +590,8 @@ function buildSidebar() {
 
 function initDashboard() {
   buildSidebar();
+  populateMonthFilter();
+  populateMonthFilter();
   if (!currentGroup) {
     currentGroup = '汇总';
   }
@@ -571,6 +605,8 @@ function switchSubGroup(subId) {
   currentSubGroup = subId;
   wangMengExpanded = true;
   buildSidebar();
+  populateMonthFilter();
+  populateMonthFilter();
   const sg = SUB_GROUPS['王孟'].find(s => s.id === subId);
   document.getElementById('groupTitle').textContent = '王孟组 · ' + sg.label;
   updateFilters();
