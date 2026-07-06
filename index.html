@@ -296,7 +296,9 @@ function renderStats(data) {
     const fDay = new Date(fd).getDate();
     const lDay = new Date(ld).getDate();
     const totalMonthDays = new Date(new Date(fd).getFullYear(), new Date(fd).getMonth() + 1, 0).getDate();
-    const timePct = Math.round(days / totalMonthDays * 100);
+    const _mf1 = document.getElementById('filterMonth').value;
+    const _yd1 = (new Date(new Date(fd).getFullYear()+1,0,1)-new Date(new Date(fd).getFullYear(),0,1))/86400000;
+    const timePct = Math.round(days / (_mf1 ? totalMonthDays : _yd1) * 100);
     let groupData = data;
     const groupTotal = sum(groupData.map(r => r.消耗));
     let personSet2 = new Set(groupData.map(r => r.账户操作人));
@@ -346,7 +348,9 @@ function renderStats(data) {
     tp.fDay = new Date(fd).getDate();
     tp.lDay = new Date(ld).getDate();
     const tmd = new Date(new Date(fd).getFullYear(), new Date(fd).getMonth() + 1, 0).getDate();
-    tp.timePct = Math.round(d / tmd * 100);
+    const _mf2 = document.getElementById('filterMonth').value;
+    const _yd2 = (new Date(new Date(fd).getFullYear()+1,0,1)-new Date(new Date(fd).getFullYear(),0,1))/86400000;
+    tp.timePct = Math.round(d / (_mf2 ? tmd : _yd2) * 100);
   }
   const items = [
     { label:'总消耗', value:totalConsumption.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0}), sub:'总计' },
