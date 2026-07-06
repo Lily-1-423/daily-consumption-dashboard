@@ -311,7 +311,24 @@ function renderStats(data) {
     }
     if (currentGroup === '钱世豪') { personSet2.delete('钱世豪'); personSet2.delete('刘艳'); personSet2.delete('彭静'); }
     const personCount = personSet2.size;
-    const actual = personCount > 0 && days > 0 ? (groupTotal / personCount / days / 10000) : 0;
+    const mf_act = document.getElementById('filterMonth').value;
+    let actual;
+    if (!mf_act) {
+      const _mG = {};
+      groupData.forEach(function(r) { var _m = r.日期.slice(0,7); if(!_mG[_m]) _mG[_m]=[]; _mG[_m].push(r); });
+      var _sA = 0;
+      Object.keys(_mG).forEach(function(_m) {
+        var _md = _mG[_m];
+        var _mc = sum(_md.map(function(r){return r.消耗;}));
+        var _mo = new Set(_md.map(function(r){return r.账户操作人;})).size;
+        var _fd = _md[0].日期; var _mds = new Date(new Date(_fd).getFullYear(), new Date(_fd).getMonth() + 1, 0).getDate();
+        _sA += _mo > 0 && _mds > 0 ? (_mc / _mo / _mds / 10000) : 0;
+      });
+      var _mCnt = Object.keys(_mG).length;
+      actual = _mCnt > 0 ? _sA / _mCnt : 0;
+    } else {
+      actual = personCount > 0 && totalMonthDays > 0 ? (groupTotal / personCount / totalMonthDays / 10000) : 0;
+    }
     const subGroupTargets = {'刘静组':5};
   const target = currentSubGroup && subGroupTargets[currentSubGroup] ? subGroupTargets[currentSubGroup] : leaderTargets[currentGroup];
   const groupLabel = currentSubGroup || (currentGroup + '组');
@@ -522,8 +539,8 @@ function renderClientAnomalies(data) {
   document.getElementById('anomalyClientContent').innerHTML = html;
 }
 function renderTargets(data) {
-  const defaultTargets = {"余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,"任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,"陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任嫫":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000,"项任娸":1500000,"刘静":1500000,"刘艳":350000};
-const julyTargets = {"余锐": 1500000, "张远祥": 1500000, "张金莎": 750000, "夏玲欢": 2100000, "邱芬": 2100000, "魏达昌": 2100000, "张琪": 2100000, "李沙": 2100000, "陈安琦": 2100000, "任洁": 2100000, "敖丽": 1050000, "王曼": 1050000, "刘云杰": 4500000, "董崇阳": 1800000, "李露露": 1800000, "陈瑶瑶": 1800000, "鲁伊雯": 1500000, "孟杨": 1500000, "项  任": 1500000, "刘秋芬": 1500000, "杨玉洁": 1500000, "陈佳": 1500000, "薛岭": 750000};
+  const defaultTargets = {"余锐":1500000,"张远祥":1500000,"夏玲欢":2100000,"邱芬":2100000,"魏达昌":2100000,"张琪":2100000,"李沙":2100000,"陈安琦":2100000,"任洁":2100000,"敖丽":1050000,"王曼":1050000,"刘云杰":4500000,"董崇阳":1800000,"章晓东":1800000,"李露露":1800000,"陈瑶瑶":900000,"鲁伊雯":1500000,"孟杨":1500000,"项任嫫":1500000,"刘秋芬":1500000,"杨玉洁":750000,"陈佳":750000,"薛岭":750000,"项任娸":1500000,"刘静":1500000};
+const julyTargets = {"余锐": 1500000, "张远祥": 1500000, "张金莎": 750000, "夏玲欢": 2100000, "邱芬": 2100000, "魏达昌": 2100000, "张琪": 2100000, "李沙": 2100000, "陈安琦": 2100000, "任洁": 2100000, "敖丽": 1050000, "王曼": 1050000, "刘云杰": 4500000, "董崇阳": 1800000, "李露露": 1800000, "陈瑶瑶": 1800000, "鲁伊雯": 1500000, "孟杨": 1500000, "项任娸": 1500000, "刘秋芬": 1500000, "杨玉洁": 1500000, "陈佳": 1500000, "薛岭": 750000};
 
   const sectionTitle = document.querySelector('#targetSection h3');
   let groupOps;
@@ -548,10 +565,23 @@ const julyTargets = {"余锐": 1500000, "张远祥": 1500000, "张金莎": 75000
     }
     sectionTitle.textContent = '运营目标及达成情况';
   }
+  const _availOps = new Set(data.map(r => r.账户操作人));
+  groupOps = groupOps.filter(op => _availOps.has(op));
   let entries = groupOps.map(k => {
     const opData = data.filter(r => r.账户操作人 === k);
     const total = opData.length > 0 ? sum(opData.map(r => r.消耗)) : 0;
-    const tgt = document.getElementById("filterMonth").value === "2026-07" ? julyTargets : defaultTargets;
+    const mf_val = document.getElementById("filterMonth").value;
+    let tgt;
+    if (mf_val === "2026-07") {
+      tgt = julyTargets;
+    } else if (mf_val === "") {
+      const _sum = {};
+      Object.keys(defaultTargets).forEach(function(k) { _sum[k] = (_sum[k] || 0) + defaultTargets[k]; });
+      Object.keys(julyTargets).forEach(function(k) { _sum[k] = (_sum[k] || 0) + julyTargets[k]; });
+      tgt = _sum;
+    } else {
+      tgt = defaultTargets;
+    }
     const target = tgt[k] || 0;
     const rate = target > 0 ? (total / target * 100) : 0;
     return { name:k, total, target, rate };
@@ -622,4 +652,5 @@ initDashboard();
 </script>
 </body>
 </html>
+
 
