@@ -311,7 +311,8 @@ function renderStats(data) {
     const totalMonthDays = new Date(new Date(fd).getFullYear(), new Date(fd).getMonth() + 1, 0).getDate();
     const _mf1 = document.getElementById('filterMonth').value;
     const _yd1 = (new Date(new Date(fd).getFullYear()+1,0,1)-new Date(new Date(fd).getFullYear(),0,1))/86400000;
-      const timePct = Math.round(days / (_mf1 ? totalMonthDays : _yd1) * 100);
+      const _doy1 = Math.floor((new Date()-new Date(new Date().getFullYear(),0,1))/86400000)+1;
+      const timePct = Math.round((_mf1 ? days : _doy1) / (_mf1 ? totalMonthDays : _yd1) * 100);
     let groupData = data;
     const groupTotal = sum(groupData.map(r => r.消耗));
     let personSet2 = new Set(groupData.map(r => r.账户操作人));
@@ -325,8 +326,9 @@ function renderStats(data) {
       }
     }
     if (currentGroup === '钱世豪') { personSet2.delete('钱世豪'); personSet2.delete('刘艳'); personSet2.delete('彭静'); }
-    const personCount = personSet2.size;
+    let personCount = personSet2.size;
     const mf_act = document.getElementById('filterMonth').value;
+    if (currentGroup === '张远祥' && (mf_act === '' || mf_act === '2026-06')) { personCount = 2; }
     let actual;
     if (!mf_act) {
       const _mG = {};
@@ -336,6 +338,7 @@ function renderStats(data) {
         var _md = _mG[_m];
         var _mc = sum(_md.map(function(r){return r.消耗;}));
         var _mo = new Set(_md.map(function(r){return r.账户操作人;})).size;
+        if (currentGroup === '张远祥' && _m === '2026-06') _mo = 2;
         var _fd = _md[0].日期; var _mds = new Date(new Date(_fd).getFullYear(), new Date(_fd).getMonth() + 1, 0).getDate();
         _sA += _mo > 0 && _mds > 0 ? (_mc / _mo / _mds / 10000) : 0;
       });
@@ -364,7 +367,8 @@ function renderStats(data) {
     const tmd = new Date(new Date(fd).getFullYear(), new Date(fd).getMonth() + 1, 0).getDate();
     const _mf2 = document.getElementById('filterMonth').value;
     const _yd2 = (new Date(new Date(fd).getFullYear()+1,0,1)-new Date(new Date(fd).getFullYear(),0,1))/86400000;
-      tp.timePct = Math.round(d / (_mf2 ? tmd : _yd2) * 100);
+      const _doy2 = Math.floor((new Date()-new Date(new Date().getFullYear(),0,1))/86400000)+1;
+      tp.timePct = Math.round((_mf2 ? d : _doy2) / (_mf2 ? tmd : _yd2) * 100);
   }
   const items = [
     { label:'总消耗', value:totalConsumption.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0}), sub:'总计' },
