@@ -312,7 +312,7 @@ function renderStats(data) {
     const _mf1 = document.getElementById('filterMonth').value;
     const _yd1 = (new Date(new Date(fd).getFullYear()+1,0,1)-new Date(new Date(fd).getFullYear(),0,1))/86400000;
       const _doy1 = Math.floor((new Date()-new Date(new Date().getFullYear(),0,1))/86400000)+1;
-      const timePct = Math.round((_mf1 ? days : _doy1) / (_mf1 ? totalMonthDays : _yd1) * 100);
+      const timePct = _mf1 && new Date(_mf1+'-01') < new Date(new Date().getFullYear(),new Date().getMonth(),1) ? 100 : Math.round((_mf1 ? days : _doy1) / (_mf1 ? totalMonthDays : _yd1) * 100);
     let groupData = data;
     const groupTotal = sum(groupData.map(r => r.消耗));
     let personSet2 = new Set(groupData.map(r => r.账户操作人));
@@ -366,9 +366,10 @@ function renderStats(data) {
     tp.lMonth = new Date(ld).getMonth() + 1;
     const tmd = new Date(new Date(fd).getFullYear(), new Date(fd).getMonth() + 1, 0).getDate();
     const _mf2 = document.getElementById('filterMonth').value;
+    if (_mf2) { var _p = _mf2.split('-').map(Number); tp.fMonth = _p[1]; tp.fDay = 1; tp.lMonth = _p[1]; tp.lDay = new Date(_p[0], _p[1], 0).getDate(); }
     const _yd2 = (new Date(new Date(fd).getFullYear()+1,0,1)-new Date(new Date(fd).getFullYear(),0,1))/86400000;
       const _doy2 = Math.floor((new Date()-new Date(new Date().getFullYear(),0,1))/86400000)+1;
-      tp.timePct = Math.round((_mf2 ? d : _doy2) / (_mf2 ? tmd : _yd2) * 100);
+      tp.timePct = _mf2 && new Date(_mf2+'-01') < new Date(new Date().getFullYear(),new Date().getMonth(),1) ? 100 : Math.round((_mf2 ? d : _doy2) / (_mf2 ? tmd : _yd2) * 100);
   }
   const items = [
     { label:'总消耗', value:totalConsumption.toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:0}), sub:'总计' },
